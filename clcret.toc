@@ -1,0 +1,9 @@
+## Interface: 30100
+## Title: clcret
+## Notes: Retribution FCFS helper
+## Author: Calcute of Ravencrest
+## SavedVariables: bretDB
+
+embeds.xml
+core.lua
+options.lua
