@@ -222,7 +222,7 @@ end
 -- target change
 function clcret:PLAYER_TARGET_CHANGED()
 	if not enabled then return end
-	if UnitExists("target") and not UnitIsFriend("player", "target") then
+	if UnitExists("target") and UnitCanAttack("player", "target") then
 		self.frame:Show()
 	else
 		self.frame:Hide()
@@ -244,9 +244,11 @@ end
 function clcret:UNIT_SPELLCAST_START(event, unit, spell, spellRank)
 	if not enabled then return end
 	
-	if unit == "player" and (spell == primarySpec or spell == secondarySpec) then
-		self:Disable()
-		self:ScheduleTimer("PLAYER_TALENT_UPDATE", 6) -- check again in case player decided not to finish the cast
+	if unit == "player" then
+		if spell == primarySpec or spell == secondarySpec then
+			self:Disable()
+			self:ScheduleTimer("PLAYER_TALENT_UPDATE", 6) -- check again in case player decided not to finish the cast
+		end
 	end
 end
 
