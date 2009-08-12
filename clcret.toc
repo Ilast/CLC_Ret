@@ -2,7 +2,7 @@
 ## Title: clcret
 ## Notes: Retribution FCFS helper
 ## Author: Calcute of Ravencrest
-## SavedVariables: bretDB
+## SavedVariables: clcretDB
 
 embeds.xml
 core.lua
