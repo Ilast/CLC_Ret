@@ -1,4 +1,4 @@
-## Interface: 30100
+## Interface: 30200
 ## Title: clcret
 ## Notes: Retribution FCFS helper
 ## Author: Calcute of Ravencrest
