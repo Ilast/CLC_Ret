@@ -6,4 +6,3 @@
 
 embeds.xml
 core.lua
-options.lua

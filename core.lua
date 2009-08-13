@@ -1,8 +1,3 @@
--- localization dependant stuff
-local primarySpec = "Activate Primary Spec"
-local secondarySpec = "Activate Secondary Spec"
--- ------------------------------------------------------------------------------------------
-
 local function bprint(s)
 	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
@@ -10,6 +5,7 @@ end
 -- the art of war
 local taowSpellName = GetSpellInfo(59578)
 local awSpellName = GetSpellInfo(31884)
+local cleanseSpellName = GetSpellInfo(4987)
 
 local clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0", "AceTimer-3.0")
 
@@ -26,7 +22,11 @@ local spells = {
 }
 
 local pq	-- queue generated from fcfs
-local q 	-- work queue
+local dq = {	-- display queue
+	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
+	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
+	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
+}	
 local lastq = nil
 local buttons = {}
 local enabled = false
@@ -35,6 +35,8 @@ local aw = { ["start"] = 0, ["duration"] = 0 }
 local dp = { ["start"] = 0, ["duration"] = 0 }
 local init = false
 local locked = true
+local scanFrequency
+local numSpells
 
 local db
 local defaults = {
@@ -55,7 +57,12 @@ local defaults = {
 			"none",
 			"none",
 			"none",
-		}
+		},
+		-- behaviour
+		updatesPerSecond = 10,
+		manaCons = 0,
+		manaDP = 0,
+		
 	}
 }
 
@@ -167,8 +174,47 @@ local options = {
 			name = "FCFS",
 			type = "group",
 			args = {
-				p1 = {
-					
+			},
+		},
+		
+		-- behaviour
+		behaviour = {
+			order = 4,
+			name = "Behaviour",
+			type = "group",
+			args = {
+				ups = {
+					order = 1,
+					type = "range",
+					name = "Updates per second",
+					min = 1,
+					max = 100,
+					step = 1,
+					get = function(info) return db.updatesPerSecond end,
+					set = function(info, val)
+						db.updatesPerSecond = val
+						scanFrequency = 1 / val
+					end,
+				},
+				manaCons = {
+					order = 2,
+					type = "range",
+					name = "Minimum mana for Consecration",
+					min = 0,
+					max = 10000,
+					step = 1,
+					get = function(info) return db.manaCons end,
+					set = function(info, val) db.manaCons = val end,
+				},
+				manaDP = {
+					order = 3,
+					type = "range",
+					name = "Maximum mana for Divine Plea",
+					min = 0,
+					max = 10000,
+					step = 1,
+					get = function(info) return db.manaDP end,
+					set = function(info, val) db.manaDP = val end,
 				},
 			},
 		}
@@ -235,21 +281,10 @@ function clcret:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("clcretDB", defaults)
 	db = self.db.char
 	
-	self:RegisterEvent("PLAYER_TALENT_UPDATE")
-	self:ScheduleTimer("Init", 1)
-	self:RegisterEvent("UNIT_SPELLCAST_START")
-end
-
-
-function clcret:UNIT_SPELLCAST_START(event, unit, spell, spellRank)
-	if not enabled then return end
+	scanFrequency = 1 / db.updatesPerSecond
 	
-	if unit == "player" then
-		if spell == primarySpec or spell == secondarySpec then
-			self:Disable()
-			self:ScheduleTimer("PLAYER_TALENT_UPDATE", 6) -- check again in case player decided not to finish the cast
-		end
-	end
+	self:RegisterChatCommand("rl", ReloadUI)
+	self:ScheduleTimer("Init", 10)
 end
 
 
@@ -293,6 +328,8 @@ function clcret:Init()
 	self:InitUI()
 	self:PLAYER_TALENT_UPDATE()
 	self:UpdateShowMethod()
+	
+	self:RegisterEvent("PLAYER_TALENT_UPDATE")
 end
 
 function clcret:InitSpells()
@@ -305,12 +342,14 @@ end
 function clcret:UpdateFCFS()
 	pq = {}
 	local check = {}
+	numSpells = 0
 	
 	for i, alias in ipairs(db.fcfs) do
 		if not check[alias] then -- take care of double entries
 			check[alias] = true
 			if alias ~= "none" then
-				table.insert(pq, { alias = alias, name = spells[alias].name, priority = i })
+				numSpells = numSpells + 1
+				pq[numSpells] = { alias = alias, name = spells[alias].name, priority = i }
 			end
 		end
 	end
@@ -328,9 +367,9 @@ function clcret:PLAYER_TALENT_UPDATE()
 end
 
 local throttle = 0
-local function clcretOnUpdate(this, elapsed)
+local function OnUpdate(this, elapsed)
 	throttle = throttle + elapsed
-	if throttle > 0.1 then
+	if throttle > scanFrequency then
 		throttle = 0
 		clcret:CheckQueue()
 		clcret:CheckRange()
@@ -365,10 +404,10 @@ function clcret:UpdateUI()
 	-- queue
 	for i = 1, 3 do
 		local button = buttons[i]
-		button.texture:SetTexture(GetSpellTexture(q[i].name))
+		button.texture:SetTexture(GetSpellTexture(dq[i].name))
 			
-		if q[i].cd > 0 then
-				button.cooldown:SetCooldown(q[i].cdStart, q[i].cdDuration)
+		if dq[i].cd > 0 then
+				button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
 				button.cooldown:Show()
 		else
 				button.cooldown:Hide()
@@ -431,34 +470,71 @@ local function MySort(a, b)
 	end
 end
 
+local lastgcd = 0
 function clcret:CheckQueue()
-	q = pq
-
+	local mana, ctime, gcd, gcdStart, gcdDuration, v
+	ctime = GetTime()
+	
+	mana = UnitMana("player")
+	
+	-- get gcd
+	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
+	gcd = max(0, gcdStart + gcdDuration - ctime)
+	
 	-- update cooldowns
-	-- save start/duration for cd display
-	local ctime = GetTime()
-	for i, v in ipairs(q) do
-		q[i].cdStart, q[i].cdDuration, enabled = GetSpellCooldown(GetSpellInfo(v.name))
-		q[i].cd = max(0, q[i].cdStart + q[i].cdDuration - ctime)
+	for i=1, numSpells do
+		v = pq[i]
+		pq[i].cdStart, pq[i].cdDuration = GetSpellCooldown(v.name)
+		pq[i].cd = max(0, pq[i].cdStart + pq[i].cdDuration - ctime)
 		
 		-- how check
 		if v.alias == "how" then
-			if not IsUsableSpell(v.name) then
-				q[i].cd = 100
-			end
+			if not IsUsableSpell(v.name) then pq[i].cd = 100 end
 		-- art of war for exorcism check
 		elseif v.alias == "exo" then
-			if UnitBuff("player", taowSpellName) == nil then
-				q[i].cd = 100
-			end
+			if UnitBuff("player", taowSpellName) == nil then pq[i].cd = 100 end
+		-- consecration min mana
+		elseif v.alias == "cons" then
+			if db.manaCons > 0 and mana < db.manaCons then pq[i].cd = 100 end
+		-- divine plea max mana
+		elseif v.alias == "dp" then
+			if db.manaDP > 0 and mana > db.manaDP then pq[i].cd = 100 end
 		end
 		
+		-- pq[i].xcd = pq[i].cd
+		pq[i].xcd = pq[i].cd - gcd
 	end
 
-	-- sort the list
-	table.sort(q, MySort)
+	self:GetBest(1)
+	self:GetBest(2)
+	self:GetBest(3)
 	
 	self:UpdateUI()
+end
+
+function clcret:GetBest(pos)
+	local xprio, xcd, xindex
+	xindex = 1
+	xprio = 1
+	xcd = pq[1].xcd
+	
+	for i = 1, numSpells do
+		if pq[i].xcd < xcd or (pq[i].xcd == xcd and pq[i].priority < xprio) then
+			xindex = i
+			xprio = pq[i].priority
+			xcd = pq[i].xcd
+		end
+		pq[i].xcd = max(0, pq[i].xcd - 1.5)
+	end
+	self:QD(pos, xindex)
+	pq[xindex].xcd = 1000
+end
+
+function clcret:QD(i, j)
+	dq[i].name = pq[j].name
+	dq[i].cdStart = pq[j].cdStart
+	dq[i].cdDuration = pq[j].cdDuration
+	dq[i].cd = pq[j].cd
 end
 
 function clcret:Enable()
@@ -545,5 +621,5 @@ function clcret:InitUI()
 	
 	init = true
 	self:Disable()
-	self.frame:SetScript("OnUpdate", clcretOnUpdate)
+	self.frame:SetScript("OnUpdate", OnUpdate)
 end
