@@ -319,6 +319,13 @@ function clcret:OptionsAddPriorities()
 end
 
 
+function clcret:DisplayFCFS()
+	for i, data in ipairs(pq) do
+		bprint(data.priority .. " " .. data.name)
+	end
+end
+
+
 function clcret:Init()
 	self:InitSpells()
 	self:OptionsAddPriorities()
@@ -328,11 +335,8 @@ function clcret:Init()
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 	AceConfigDialog:AddToBlizOptions("clcret")
 	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
-	self:RegisterChatCommand("clcretpq", function()
-		for i, data in ipairs(pq) do
-			bprint(data.priority .. " " .. data.name)
-		end
-	end)
+	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
+	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
 	
 	self:UpdateFCFS()
 	self:InitUI()
@@ -342,6 +346,34 @@ function clcret:Init()
 	self:RegisterEvent("PLAYER_TALENT_UPDATE")
 end
 
+
+function clcret:EditQueue(args)
+	local list = { strsplit(" ", args) }
+	
+	-- add args to options
+	local num = 0
+	for i, arg in ipairs(list) do
+		if spells[arg] then
+			num = num + 1
+			db.fcfs[num] = arg
+		else
+			bprint(arg .. " not found")
+		end
+	end
+	
+	-- none on the rest
+	if num < 10 then
+		for i = num + 1, 10 do
+			db.fcfs[i] = "none"
+		end
+	end
+	
+	-- redo queue
+	self:UpdateFCFS()
+	self:DisplayFCFS()
+end
+
+
 function clcret:InitSpells()
 	for alias, data in pairs(spells) do
 		spells[alias].name = GetSpellInfo(data.id)
@@ -350,7 +382,7 @@ end
 
 
 function clcret:UpdateFCFS()
-	pq = {}
+	local newpq = {}
 	local check = {}
 	numSpells = 0
 	
@@ -359,10 +391,12 @@ function clcret:UpdateFCFS()
 			check[alias] = true
 			if alias ~= "none" then
 				numSpells = numSpells + 1
-				pq[numSpells] = { alias = alias, name = spells[alias].name, priority = i }
+				newpq[numSpells] = { alias = alias, name = spells[alias].name, priority = i }
 			end
 		end
 	end
+	
+	pq = newpq
 end
 
 
@@ -441,14 +475,21 @@ end
 
 
 function clcret:CheckAW()
+	--[[
 	local start, duration = GetSpellCooldown(awSpellName)
 	if duration > 0 then
 		awButton:Hide()
 	else
 		awButton:Show()
 	end
-	--[[
-	local start, duration = GetSpellCooldown(spells["aw"].name)
+	--]]
+	---[[
+	local start, duration, enabled = GetSpellCooldown(spells["aw"].name)
+	if enabled then
+		awButton.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		awButton.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
 	if start ~= aw.start then 
 			aw.start = start
 			aw.duration = duration
@@ -460,7 +501,7 @@ function clcret:CheckAW()
 					awButton.cooldown:Hide()
 			end
 	end
-	]]
+	--]]
 end
 
 function clcret:CheckDP()
