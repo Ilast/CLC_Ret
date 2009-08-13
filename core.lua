@@ -216,7 +216,7 @@ local options = {
 					get = function(info) return db.manaDP end,
 					set = function(info, val) db.manaDP = val end,
 				},
-				manaDP = {
+				delay = {
 					order = 4,
 					type = "range",
 					name = "Delay before addon loads",
