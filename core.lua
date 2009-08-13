@@ -61,7 +61,9 @@ local defaults = {
 		-- behaviour
 		updatesPerSecond = 10,
 		manaCons = 0,
+		manaConsPerc = 0,
 		manaDP = 0,
+		manaDPPerc = 0,
 		loadDelay = 10,
 	}
 }
@@ -206,8 +208,18 @@ local options = {
 					get = function(info) return db.manaCons end,
 					set = function(info, val) db.manaCons = val end,
 				},
-				manaDP = {
+				manaConsPerc = {
 					order = 3,
+					type = "range",
+					name = "% Minimum mana for Consecration",
+					min = 0,
+					max = 100,
+					step = 1,
+					get = function(info) return db.manaConsPerc end,
+					set = function(info, val) db.manaConsPerc = val end,
+				},
+				manaDP = {
+					order = 4,
 					type = "range",
 					name = "Maximum mana for Divine Plea",
 					min = 0,
@@ -216,8 +228,18 @@ local options = {
 					get = function(info) return db.manaDP end,
 					set = function(info, val) db.manaDP = val end,
 				},
+				manaDPPerc = {
+					order = 5,
+					type = "range",
+					name = "% Maximum mana for Divine Plea",
+					min = 0,
+					max = 100,
+					step = 1,
+					get = function(info) return db.manaDPPerc end,
+					set = function(info, val) db.manaDPPerc = val end,
+				},
 				delay = {
-					order = 4,
+					order = 10,
 					type = "range",
 					name = "Delay before addon loads",
 					min = 0,
@@ -484,22 +506,22 @@ function clcret:CheckAW()
 	end
 	--]]
 	---[[
-	local start, duration, enabled = GetSpellCooldown(spells["aw"].name)
-	if enabled then
+	local start, duration = GetSpellCooldown(awSpellName)
+	if IsUsableSpell(awSpellName) then
 		awButton.texture:SetVertexColor(1, 1, 1, 1)
 	else
 		awButton.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
 	end
 	if start ~= aw.start then 
-			aw.start = start
-			aw.duration = duration
-			local cd = start + duration - GetTime()
-			if cd > 0 then
-					awButton.cooldown:SetCooldown(aw.start, aw.duration)
-					awButton.cooldown:Show()
-			else
-					awButton.cooldown:Hide()
-			end
+		aw.start = start
+		aw.duration = duration
+		local cd = start + duration - GetTime()
+		if cd > 0 then
+				awButton.cooldown:SetCooldown(aw.start, aw.duration)
+				awButton.cooldown:Show()
+		else
+				awButton.cooldown:Hide()
+		end
 	end
 	--]]
 end
@@ -523,10 +545,11 @@ end
 
 local lastgcd = 0
 function clcret:CheckQueue()
-	local mana, ctime, gcd, gcdStart, gcdDuration, v
+	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
 	ctime = GetTime()
 	
-	mana = UnitMana("player")
+	mana = UnitPower("player")
+	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
 	
 	-- get gcd
 	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
@@ -546,10 +569,10 @@ function clcret:CheckQueue()
 			if UnitBuff("player", taowSpellName) == nil then pq[i].cd = 100 end
 		-- consecration min mana
 		elseif v.alias == "cons" then
-			if db.manaCons > 0 and mana < db.manaCons then pq[i].cd = 100 end
+			if (db.manaCons > 0 and mana < db.manaCons) or (db.manaConsPerc and manaPerc < db.manaConsPerc) then pq[i].cd = 100 end
 		-- divine plea max mana
 		elseif v.alias == "dp" then
-			if db.manaDP > 0 and mana > db.manaDP then pq[i].cd = 100 end
+			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then pq[i].cd = 100 end
 		end
 		
 		-- pq[i].xcd = pq[i].cd
