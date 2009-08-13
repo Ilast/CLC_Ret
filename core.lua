@@ -62,7 +62,7 @@ local defaults = {
 		updatesPerSecond = 10,
 		manaCons = 0,
 		manaDP = 0,
-		
+		loadDelay = 10,
 	}
 }
 
@@ -216,6 +216,16 @@ local options = {
 					get = function(info) return db.manaDP end,
 					set = function(info, val) db.manaDP = val end,
 				},
+				manaDP = {
+					order = 4,
+					type = "range",
+					name = "Delay before addon loads",
+					min = 0,
+					max = 30,
+					step = 1,
+					get = function(info) return db.loadDelay end,
+					set = function(info, val) db.loadDelay = val end,
+				},
 			},
 		}
 	}
@@ -284,7 +294,7 @@ function clcret:OnInitialize()
 	scanFrequency = 1 / db.updatesPerSecond
 	
 	self:RegisterChatCommand("rl", ReloadUI)
-	self:ScheduleTimer("Init", 10)
+	self:ScheduleTimer("Init", db.loadDelay)
 end
 
 
