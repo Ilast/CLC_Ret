@@ -624,27 +624,28 @@ function clcret:CheckSoV()
 		sovButton:Hide()
 		return
 	end
-	local name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff("target", sovName)
-	if not name then 
-		sovButton:Hide()
-	else
-		if not caster == "player" then
-			sovButton:Hide()
-		else
-			-- found the debuff
-			-- update only if it changes
-			if sov.expirationTime ~= expirationTime then
-				sov.expirationTime = expirationTime
-				sovButton.cooldown:SetCooldown(expirationTime - duration, duration)
-			end
-			sovButton:Show()
-			sovButton.stack:SetText(count)
+	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitDebuff("target", sovName)
+	if name and (caster == "player") then 
+		-- found the debuff
+		-- update only if it changes
+		if sov.expirationTime ~= expirationTime then
+			sov.expirationTime = expirationTime
+			sovButton.cooldown:SetCooldown(expirationTime - duration, duration)
 		end
+		sovButton:Show()
+		sovButton.stack:SetText(count)
+	else
+		sovButton:Hide()
 	end
 end
 
 function clcret:CheckDP()
 	local start, duration = GetSpellCooldown(spells["dp"].name)
+	if IsUsableSpell(spells["dp"].name) then
+		dpButton.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		dpButton.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
 	if duration > 1.6 then
 		dpButton:Hide()
 	else
