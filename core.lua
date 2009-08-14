@@ -2,10 +2,18 @@ local function bprint(s)
 	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
 
--- the art of war
-local taowSpellName = GetSpellInfo(59578)
-local awSpellName = GetSpellInfo(31884)
-local cleanseSpellName = GetSpellInfo(4987)
+local taowSpellName = GetSpellInfo(59578) 				-- the art of war
+local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
+local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> used for gcd
+local sovName, sovTextureName							-- sov
+if UnitFactionGroup("player") == "Alliance" then
+	sovName = GetSpellInfo(31803)						-- holy vengeance
+	sovTextureName = GetSpellInfo(31801)				-- seal of vengeance
+else
+	sovName = GetSpellInfo(53742)						-- blood corruption
+	sovTextureName = GetSpellInfo(53736)						-- seal of corruption
+end
+
 
 local clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0", "AceTimer-3.0")
 
@@ -25,14 +33,17 @@ local pq	-- queue generated from fcfs
 local dq = {	-- display queue
 	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
 	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
-	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
 }	
-local lastq = nil
 local buttons = {}
-local enabled = false
-local awButton = nil
+local addonEnabled = false
+local awButton
+local dwButton
+local sovButton
+
 local aw = { ["start"] = 0, ["duration"] = 0 }
 local dp = { ["start"] = 0, ["duration"] = 0 }
+local sov = { ["expirationTime"] = 0 }
+
 local init = false
 local locked = true
 local scanFrequency
@@ -267,7 +278,7 @@ function clcret:UpdateShowMethod()
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
 
 	if db.show == "combat" then
-		if enabled then
+		if addonEnabled then
 			if UnitAffectingCombat("player") then
 				self.frame:Show()
 			else
@@ -281,7 +292,7 @@ function clcret:UpdateShowMethod()
 		self:PLAYER_TARGET_CHANGED()
 		self:RegisterEvent("PLAYER_TARGET_CHANGED")
 	else
-		if enabled then
+		if addonEnabled then
 			self.frame:Show()
 		end
 	end
@@ -289,17 +300,17 @@ end
 
 -- out of combat
 function clcret:PLAYER_REGEN_ENABLED()
-	if not enabled then return end
+	if not addonEnabled then return end
 	self.frame:Hide()
 end
 -- in combat
 function clcret:PLAYER_REGEN_DISABLED()
-	if not enabled then return end
+	if not addonEnabled then return end
 	self.frame:Show()
 end
 -- target change
 function clcret:PLAYER_TARGET_CHANGED()
-	if not enabled then return end
+	if not addonEnabled then return end
 	if UnitExists("target") and UnitCanAttack("player", "target") then
 		self.frame:Show()
 	else
@@ -439,6 +450,7 @@ local function OnUpdate(this, elapsed)
 		throttle = 0
 		clcret:CheckQueue()
 		clcret:CheckRange()
+		clcret:CheckSoV()
 		clcret:CheckAW()
 		clcret:CheckDP()
 	end
@@ -468,7 +480,7 @@ end
 
 function clcret:UpdateUI()
 	-- queue
-	for i = 1, 3 do
+	for i = 1, 2 do
 		local button = buttons[i]
 		button.texture:SetTexture(GetSpellTexture(dq[i].name))
 			
@@ -485,11 +497,11 @@ end
 function clcret:CheckRange()
 	local range = IsSpellInRange(spells["cs"].name, "target")	
 	if range ~= nil and range == 0 then
-		for i=1, 3 do
+		for i=1, 2 do
 			buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
 		end
 	else
-		for i=1, 3 do
+		for i=1, 2 do
 			buttons[i].texture:SetVertexColor(1, 1, 1)
 		end
 	end
@@ -524,6 +536,30 @@ function clcret:CheckAW()
 		end
 	end
 	--]]
+end
+
+function clcret:CheckSoV()
+	if not UnitExists("target") then
+		sovButton:Hide()
+		return
+	end
+	local name, rank, icon, count, debuffType, duration, expirationTime = UnitDebuff("target", sovName)
+	if not name then 
+		sovButton:Hide()
+	else
+		if not caster == "player" then
+			sovButton:Hide()
+		else
+			-- found the debuff
+			-- update only if it changes
+			if sov.expirationTime ~= expirationTime then
+				sov.expirationTime = expirationTime
+				sovButton.cooldown:SetCooldown(expirationTime - duration, duration)
+			end
+			sovButton:Show()
+			sovLabel:SetText(count)
+		end
+	end
 end
 
 function clcret:CheckDP()
@@ -581,7 +617,6 @@ function clcret:CheckQueue()
 
 	self:GetBest(1)
 	self:GetBest(2)
-	self:GetBest(3)
 	
 	self:UpdateUI()
 end
@@ -613,14 +648,14 @@ end
 
 function clcret:Enable()
 	if init then
-		enabled = true
+		addonEnabled = true
 		self.frame:Show()
 	end
 end
 
 function clcret:Disable()
 	if init then
-		enabled = false
+		addonEnabled = false
 		self.frame:Hide()
 	end
 end
@@ -682,14 +717,23 @@ function clcret:InitUI()
 	-- queue
 	buttons[1] = self:CreateButton("B1", 70, 70, "CENTER", clcretFrame, "CENTER", 0, 0)
 	buttons[2] = self:CreateButton("B2", 40, 40, "CENTER", clcretFrame, "CENTER", 57, -15)
-	buttons[3] = self:CreateButton("B3", 30, 30, "CENTER", clcretFrame, "CENTER", 94, -20)
+	-- buttons[3] = self:CreateButton("B3", 30, 30, "CENTER", clcretFrame, "CENTER", 94, -20)
 	
 	-- aw
-	awButton = self:CreateButton("AW", 40, 40, "CENTER", clcretFrame, "CENTER", -57, -15)
+	awButton = self:CreateButton("AW", 33, 33, "CENTER", clcretFrame, "CENTER", -54, -17)
 	awButton.texture:SetTexture(GetSpellTexture(awSpellName))
 	-- dp
-	dpButton = self:CreateButton("DP", 30, 30, "CENTER", clcretFrame, "CENTER", -94, -20)
+	dpButton = self:CreateButton("DP", 30, 30, "CENTER", clcretFrame, "CENTER", -85, -17)
 	dpButton.texture:SetTexture(GetSpellTexture(spells["dp"].name))
+	-- sov
+	sovButton = self:CreateButton("SoV", 33, 33, "CENTER", clcretFrame, "CENTER", -54, 17, true)
+	sovButton.texture:SetTexture(GetSpellTexture(sovTextureName))
+	sovButton.cooldown:Show() -- hide the full button if it's not up
+	-- text with stacks of sov
+	sovLabel = sovButton.cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+	local fontFace, _, fontFlags = sovLabel:GetFont()
+	sovLabel:SetFont(fontFace, 15, fontFlags)
+	sovLabel:SetPoint("BOTTOMRIGHT", 3, -3)
 	
 	frame:SetScale(db.scale)
 	
