@@ -48,6 +48,7 @@ local init = false
 local locked = true
 local scanFrequency
 local numSpells
+local anchorPoints = { CENTER = "CENTER", TOP = "TOP", BOTTOM = "BOTTOM", LEFT = "LEFT", RIGHT = "RIGHT", TOPLEFT = "TOPLEFT", TOPRIGHT = "TOPRIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOMRIGHT = "BOTTOMRIGHT" }
 
 local db
 local defaults = {
@@ -76,6 +77,16 @@ local defaults = {
 		manaDP = 0,
 		manaDPPerc = 0,
 		loadDelay = 10,
+		layout = {
+			button2 = {
+				size = 40,
+				alpha = 1,
+				x = 50,
+				y = 0,
+				point = "BOTTOMLEFT",
+				pointParent = "BOTTOMRIGHT",
+			}
+		}
 	}
 }
 
@@ -90,6 +101,97 @@ end
 local options = {
 	type = "group",
 	args = {
+	
+		-- layout
+		layout = {
+			order = 10,
+			name = "Layout",
+			type = "group",
+			args = {
+				button2 = {
+					order = 1,
+					name = "Second skill",
+					type = "group",
+					args = {
+						size = {
+							order = 1,
+							type = "range",
+							name = "Size",
+							min = 0,
+							max = 100,
+							step = 1,
+							get = function(info) return db.layout.button2.size end,
+							set = function(info, val)
+								db.layout.button2.size = val
+								clcret:UpdateUILayout()
+							end,
+						},
+						alpha = {
+							order = 2,
+							type = "range",
+							name = "Alpha",
+							min = 0,
+							max = 1,
+							step = 0.01,
+							get = function(info) return db.layout.button2.alpha end,
+							set = function(info, val)
+								db.layout.button2.alpha = val
+								clcret:UpdateUILayout()
+							end,
+						},
+						anchor = {
+							order = 6,
+							type = "select",
+							name = "Anchor",
+							get = function(info) return db.layout.button2.point end,
+							set = function(info, val)
+								db.layout.button2.point = val
+								clcret:UpdateUILayout()
+							end,
+							values = anchorPoints,
+						},
+						anchorTo = {
+							order = 6,
+							type = "select",
+							name = "Anchor To",
+							get = function(info) return db.layout.button2.pointParent end,
+							set = function(info, val)
+								db.layout.button2.pointParent = val
+								clcret:UpdateUILayout()
+							end,
+							values = anchorPoints,
+						},
+						x = {
+							order = 10,
+							type = "range",
+							name = "X",
+							min = -1000,
+							max = 1000,
+							step = 1,
+							get = function(info) return db.layout.button2.x end,
+							set = function(info, val)
+								db.layout.button2.x = val
+								clcret:UpdateUILayout()
+							end,
+						},
+						y = {
+							order = 11,
+							type = "range",
+							name = "Y",
+							min = -1000,
+							max = 1000,
+							step = 1,
+							get = function(info) return db.layout.button2.y end,
+							set = function(info, val)
+								db.layout.button2.y = val
+								clcret:UpdateUILayout()
+							end,
+						},
+					},
+				},
+			},
+		},
+	
 		-- lock frame
 		lock = {
 			order = 1,
@@ -457,27 +559,6 @@ local function OnUpdate(this, elapsed)
 end
 
 
-function clcret:CreateButton(name, width, height, point, parent, pointParent, offsetx, offsety)
-	local button = CreateFrame("Frame", "clcret"..name, parent)
-	button:SetWidth(width)
-	button:SetHeight(height)
-	button:SetPoint(point, parent, pointParent, offsetx, offsety)
-	
-	local texture = button:CreateTexture(nil,"BACKGROUND")
-	texture:SetTexture(nil)
-	texture:SetAllPoints(button)
-	--texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	button.texture = texture
-	
-	local cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
-	cooldown:SetAllPoints(button)
-	cooldown:Hide()
-	button.cooldown = cooldown
-	
-	return button
-end
-
-
 function clcret:UpdateUI()
 	-- queue
 	for i = 1, 2 do
@@ -497,11 +578,11 @@ end
 function clcret:CheckRange()
 	local range = IsSpellInRange(spells["cs"].name, "target")	
 	if range ~= nil and range == 0 then
-		for i=1, 2 do
+		for i = 1, 2 do
 			buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
 		end
 	else
-		for i=1, 2 do
+		for i = 1, 2 do
 			buttons[i].texture:SetVertexColor(1, 1, 1)
 		end
 	end
@@ -557,7 +638,7 @@ function clcret:CheckSoV()
 				sovButton.cooldown:SetCooldown(expirationTime - duration, duration)
 			end
 			sovButton:Show()
-			sovLabel:SetText(count)
+			sovButton.stack:SetText(count)
 		end
 	end
 end
@@ -684,15 +765,26 @@ end
 
 
 function clcret:CenterHorizontally()
-	db.x = (UIParent:GetWidth() / 2 - 110 * db.scale) / db.scale
+	db.x = (UIParent:GetWidth() - 75 * db.scale) / 2 / db.scale
 	self:UpdateFrameSettings()
+end
+
+
+function clcret:UpdateUILayout()
+	local button = buttons[2]
+	local opt = db.layout.button2
+	button:SetWidth(opt.size)
+	button:SetHeight(opt.size)
+	button:SetAlpha(opt.alpha)
+	button:ClearAllPoints()
+	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
 end
 
 
 function clcret:InitUI()
 	local frame = CreateFrame("Frame", "clcretFrame", UIParent)
-	frame:SetWidth(220)
-	frame:SetHeight(70)
+	frame:SetWidth(75)
+	frame:SetHeight(75)
 	frame:SetPoint("BOTTOMLEFT", db.x, db.y)
 	
 	frame:EnableMouse(false)
@@ -715,29 +807,56 @@ function clcret:InitUI()
 	self.frame = frame
 	
 	-- queue
-	buttons[1] = self:CreateButton("B1", 70, 70, "CENTER", clcretFrame, "CENTER", 0, 0)
-	buttons[2] = self:CreateButton("B2", 40, 40, "CENTER", clcretFrame, "CENTER", 57, -15)
-	-- buttons[3] = self:CreateButton("B3", 30, 30, "CENTER", clcretFrame, "CENTER", 94, -20)
+	buttons[1] = self:CreateButton("B1", 70, "CENTER", clcretFrame, "CENTER", 0, 0)
+	local opt = db.layout.button2
+	buttons[2] = self:CreateButton("B2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	buttons[2]:SetAlpha(opt.alpha)
+	-- buttons[3] = self:CreateButton("B3", 30, "CENTER", clcretFrame, "CENTER", 94, -20)
 	
 	-- aw
-	awButton = self:CreateButton("AW", 33, 33, "CENTER", clcretFrame, "CENTER", -54, -17)
+	awButton = self:CreateButton("AW", 33, "CENTER", clcretFrame, "CENTER", -54, -17)
 	awButton.texture:SetTexture(GetSpellTexture(awSpellName))
 	-- dp
-	dpButton = self:CreateButton("DP", 30, 30, "CENTER", clcretFrame, "CENTER", -85, -17)
+	dpButton = self:CreateButton("DP", 33, "CENTER", clcretFrame, "CENTER", -89, -17)
 	dpButton.texture:SetTexture(GetSpellTexture(spells["dp"].name))
 	-- sov
-	sovButton = self:CreateButton("SoV", 33, 33, "CENTER", clcretFrame, "CENTER", -54, 17, true)
+	sovButton = self:CreateButton("SoV", 33, "CENTER", clcretFrame, "CENTER", -54, 17, true)
 	sovButton.texture:SetTexture(GetSpellTexture(sovTextureName))
-	sovButton.cooldown:Show() -- hide the full button if it's not up
-	-- text with stacks of sov
-	sovLabel = sovButton.cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-	local fontFace, _, fontFlags = sovLabel:GetFont()
-	sovLabel:SetFont(fontFace, 15, fontFlags)
-	sovLabel:SetPoint("BOTTOMRIGHT", 3, -3)
+	sovButton.cooldown:Show()
+	sovButton.stack:Show()
 	
 	frame:SetScale(db.scale)
 	
 	init = true
 	self:Disable()
 	self.frame:SetScript("OnUpdate", OnUpdate)
+end
+
+function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, hasStack)
+	local button = CreateFrame("Frame", "clcret"..name, parent)
+	button:SetWidth(size)
+	button:SetHeight(size)
+	button:SetPoint(point, parent, pointParent, offsetx, offsety)
+	
+	local texture = button:CreateTexture(nil,"BACKGROUND")
+	texture:SetTexture(nil)
+	texture:SetAllPoints(button)
+	--texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	button.texture = texture
+	
+	local cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
+	cooldown:SetAllPoints(button)
+	cooldown:Hide()
+	button.cooldown = cooldown
+	
+	if hasStack then
+		local stack = cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+		local fontFace, _, fontFlags = stack:GetFont()
+		stack:SetFont(fontFace, 15, fontFlags)
+		stack:SetPoint("BOTTOMRIGHT", 3, -3)
+		stack:Hide()
+		button.stack = stack
+	end
+	
+	return button
 end
