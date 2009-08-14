@@ -2,16 +2,17 @@ local function bprint(s)
 	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
 
+local MAX_AURAS = 10
+
 local taowSpellName = GetSpellInfo(59578) 				-- the art of war
 local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
+local dpSpellName = GetSpellInfo(54428)					-- divine plea
 local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> used for gcd
 local sovName, sovTextureName							-- sov
 if UnitFactionGroup("player") == "Alliance" then
 	sovName = GetSpellInfo(31803)						-- holy vengeance
-	sovTextureName = GetSpellInfo(31801)				-- seal of vengeance
 else
 	sovName = GetSpellInfo(53742)						-- blood corruption
-	sovTextureName = GetSpellInfo(53736)						-- seal of corruption
 end
 
 
@@ -35,18 +36,14 @@ local dq = {	-- display queue
 	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
 }	
 local buttons = {}
+local auraButtons = {}
+local auraIndex
 local addonEnabled = false
-local awButton
-local dwButton
-local sovButton
 
-local aw = { ["start"] = 0, ["duration"] = 0 }
-local dp = { ["start"] = 0, ["duration"] = 0 }
-local sov = { ["expirationTime"] = 0 }
-
-local init = false
+local addonInit = false
 local locked = true
 local scanFrequency
+local scanFrequencyAuras
 local numSpells
 local anchorPoints = { CENTER = "CENTER", TOP = "TOP", BOTTOM = "BOTTOM", LEFT = "LEFT", RIGHT = "RIGHT", TOPLEFT = "TOPLEFT", TOPRIGHT = "TOPRIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOMRIGHT = "BOTTOMRIGHT" }
 
@@ -72,12 +69,21 @@ local defaults = {
 		},
 		-- behaviour
 		updatesPerSecond = 10,
+		updatesPerSecondAuras = 5,
 		manaCons = 0,
 		manaConsPerc = 0,
 		manaDP = 0,
 		manaDPPerc = 0,
 		loadDelay = 10,
 		layout = {
+			button1 = {
+				size = 70,
+				alpha = 1,
+				x = 0,
+				y = 0,
+				point = "CENTER",
+				pointParent = "CENTER",
+			},
 			button2 = {
 				size = 40,
 				alpha = 1,
@@ -86,18 +92,105 @@ local defaults = {
 				point = "BOTTOMLEFT",
 				pointParent = "BOTTOMRIGHT",
 			}
+		},
+		-- auras
+		auras = {
+			-- 1
+			-- avenging wrath
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecSkillVisibleAlways",
+					spell = awSpellName,
+					texture = "",
+					unit = "",
+				},
+				layout = {
+					size = 30,
+					x = 0,
+					y = 5,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			},
+			
+			-- 2
+			-- divine plea
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecSkillVisibleNoCooldown",
+					spell = dpSpellName,
+					unit = "",
+				},
+				layout = {
+					size = 30,
+					x = -35,
+					y = 5,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			},
+			
+			-- 3
+			-- sov
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecGenericDebuff",
+					spell = sovName,
+					unit = "target",
+				},
+				layout = {
+					size = 30,
+					x = 0,
+					y = 40,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			},
+			
+			
+			-- 4
+			-- taow
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecGenericBuff",
+					spell = taowSpellName,
+					unit = "player",
+				},
+				layout = {
+					size = 30,
+					x = -35,
+					y = 40,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			}
 		}
 	}
 }
 
-local function GetSpellChoice()
-	local spellChoice = { none = "None" }
-	for alias, data in pairs(spells) do
-		spellChoice[alias] = data.name
-	end
-	
-	return spellChoice
+for i = 5, MAX_AURAS do 
+	defaults.char.auras[i] = {
+		enabled = false,
+		data = {
+			exec = "AuraButtonExecNone",
+			spell = "",
+			unit = "",
+		},
+		layout = {
+			size = 30,
+			x = 0,
+			y = 0,
+			point = "BOTTOM",
+			pointParent = "TOP",
+		},
+	}
 end
+
+---[[
 local options = {
 	type = "group",
 	args = {
@@ -107,89 +200,14 @@ local options = {
 			order = 10,
 			name = "Layout",
 			type = "group",
-			args = {
-				button2 = {
-					order = 1,
-					name = "Second skill",
-					type = "group",
-					args = {
-						size = {
-							order = 1,
-							type = "range",
-							name = "Size",
-							min = 0,
-							max = 100,
-							step = 1,
-							get = function(info) return db.layout.button2.size end,
-							set = function(info, val)
-								db.layout.button2.size = val
-								clcret:UpdateUILayout()
-							end,
-						},
-						alpha = {
-							order = 2,
-							type = "range",
-							name = "Alpha",
-							min = 0,
-							max = 1,
-							step = 0.01,
-							get = function(info) return db.layout.button2.alpha end,
-							set = function(info, val)
-								db.layout.button2.alpha = val
-								clcret:UpdateUILayout()
-							end,
-						},
-						anchor = {
-							order = 6,
-							type = "select",
-							name = "Anchor",
-							get = function(info) return db.layout.button2.point end,
-							set = function(info, val)
-								db.layout.button2.point = val
-								clcret:UpdateUILayout()
-							end,
-							values = anchorPoints,
-						},
-						anchorTo = {
-							order = 6,
-							type = "select",
-							name = "Anchor To",
-							get = function(info) return db.layout.button2.pointParent end,
-							set = function(info, val)
-								db.layout.button2.pointParent = val
-								clcret:UpdateUILayout()
-							end,
-							values = anchorPoints,
-						},
-						x = {
-							order = 10,
-							type = "range",
-							name = "X",
-							min = -1000,
-							max = 1000,
-							step = 1,
-							get = function(info) return db.layout.button2.x end,
-							set = function(info, val)
-								db.layout.button2.x = val
-								clcret:UpdateUILayout()
-							end,
-						},
-						y = {
-							order = 11,
-							type = "range",
-							name = "Y",
-							min = -1000,
-							max = 1000,
-							step = 1,
-							get = function(info) return db.layout.button2.y end,
-							set = function(info, val)
-								db.layout.button2.y = val
-								clcret:UpdateUILayout()
-							end,
-						},
-					},
-				},
-			},
+			args = {},
+		},
+		
+		auras = {
+			order = 5,
+			name = "Aura Buttons",
+			type = "group",
+			args = {},
 		},
 	
 		-- lock frame
@@ -311,8 +329,21 @@ local options = {
 						scanFrequency = 1 / val
 					end,
 				},
-				manaCons = {
+				upsAuras = {
 					order = 2,
+					type = "range",
+					name = "Updates per second for Aura Buttons",
+					min = 1,
+					max = 100,
+					step = 1,
+					get = function(info) return db.updatesPerSecondAuras end,
+					set = function(info, val)
+						db.updatesPerSecondAuras = val
+						scanFrequencyAuras = 1 / val
+					end,
+				},
+				manaCons = {
+					order = 5,
 					type = "range",
 					name = "Minimum mana for Consecration",
 					min = 0,
@@ -322,7 +353,7 @@ local options = {
 					set = function(info, val) db.manaCons = val end,
 				},
 				manaConsPerc = {
-					order = 3,
+					order = 6,
 					type = "range",
 					name = "% Minimum mana for Consecration",
 					min = 0,
@@ -332,7 +363,7 @@ local options = {
 					set = function(info, val) db.manaConsPerc = val end,
 				},
 				manaDP = {
-					order = 4,
+					order = 10,
 					type = "range",
 					name = "Maximum mana for Divine Plea",
 					min = 0,
@@ -342,7 +373,7 @@ local options = {
 					set = function(info, val) db.manaDP = val end,
 				},
 				manaDPPerc = {
-					order = 5,
+					order = 11,
 					type = "range",
 					name = "% Maximum mana for Divine Plea",
 					min = 0,
@@ -352,7 +383,7 @@ local options = {
 					set = function(info, val) db.manaDPPerc = val end,
 				},
 				delay = {
-					order = 10,
+					order = 20,
 					type = "range",
 					name = "Delay before addon loads",
 					min = 0,
@@ -365,6 +396,268 @@ local options = {
 		}
 	}
 }
+
+local execList = {
+	AuraButtonExecNone = "None",
+	AuraButtonExecSkillVisibleAlways = "Skill always visible",
+	AuraButtonExecSkillVisibleNoCooldown = "Skill invisible on cooldown",
+	AuraButtonExecGenericBuff = "Generic buff",
+	AuraButtonExecGenericDebuff = "Generic debuff",
+}
+
+local skillButtonNames = { "Main skill", "Secondary skill" }
+-- add main buttons to layout
+for i = 1, 2 do
+	options.args.layout.args["button" .. i] = {
+		order = i,
+		name = skillButtonNames[i],
+		type = "group",
+		args = {
+			size = {
+				order = 1,
+				type = "range",
+				name = "Size",
+				min = 0,
+				max = 100,
+				step = 1,
+				get = function(info) return db.layout["button" .. i].size end,
+				set = function(info, val)
+					db.layout["button" .. i].size = val
+					clcret:UpdateSkillButtonsLayout()
+				end,
+			},
+			alpha = {
+				order = 2,
+				type = "range",
+				name = "Alpha",
+				min = 0,
+				max = 1,
+				step = 0.01,
+				get = function(info) return db.layout["button" .. i].alpha end,
+				set = function(info, val)
+					db.layout["button" .. i].alpha = val
+					clcret:UpdateSkillButtonsLayout()
+				end,
+			},
+			anchor = {
+				order = 6,
+				type = "select",
+				name = "Anchor",
+				get = function(info) return db.layout["button" .. i].point end,
+				set = function(info, val)
+					db.layout["button" .. i].point = val
+					clcret:UpdateSkillButtonsLayout()
+				end,
+				values = anchorPoints,
+			},
+			anchorTo = {
+				order = 6,
+				type = "select",
+				name = "Anchor To",
+				get = function(info) return db.layout["button" .. i].pointParent end,
+				set = function(info, val)
+					db.layout["button" .. i].pointParent = val
+					clcret:UpdateSkillButtonsLayout()
+				end,
+				values = anchorPoints,
+			},
+			x = {
+				order = 10,
+				type = "range",
+				name = "X",
+				min = -1000,
+				max = 1000,
+				step = 1,
+				get = function(info) return db.layout["button" .. i].x end,
+				set = function(info, val)
+					db.layout["button" .. i].x = val
+					clcret:UpdateSkillButtonsLayout()
+				end,
+			},
+			y = {
+				order = 11,
+				type = "range",
+				name = "Y",
+				min = -1000,
+				max = 1000,
+				step = 1,
+				get = function(info) return db.layout["button" .. i].y end,
+				set = function(info, val)
+					db.layout["button" .. i].y = val
+					clcret:UpdateSkillButtonsLayout()
+				end,
+			},
+		},
+	}
+end
+
+-- add the buttons to options
+for i = 1, MAX_AURAS do
+	-- aura options
+	options.args.auras.args["aura" .. i] = {
+		order = i,
+		type = "group",
+		name = "Aura Button " .. i,
+		args = {
+			enabled = {
+				order = 1,
+				type = "toggle",
+				name = "Enabled",
+				get = function(info) return db.auras[i].enabled end,
+				set = function(info, val)
+					if db.auras[i].data.spell == "" then
+						val = false
+						bprint("Not a valid spell name/id or buff name!")
+					end
+					db.auras[i].enabled = val
+					if not val then auraButtons[i]:Hide() end
+				end,
+			},
+			spell = {
+				order = 5,
+				type = "input",
+				name = "Spell or buff to track",
+				get = function(info) return db.auras[i].data.spell end,
+				set = function(info, val)
+					if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") then
+						local name = GetSpellInfo(val)
+						if name then
+							db.auras[i].data.spell = name
+						else
+							db.auras[i].data.spell = ""
+							bprint("Not a valid spell name/id or buff name!")
+						end
+					else
+						db.auras[i].data.spell = val
+					end
+				end,
+			},
+			exec = {
+				order = 10,
+				type = "select",
+				name = "Type",
+				get = function(info) return db.auras[i].data.exec end,
+				set = function(info, val)
+					db.auras[i].data.exec = val
+					if (val == "AuraButtonExecSkillVisibleAlways") or (val == "AuraButtonExecSkillVisibleNoCooldown") then
+						if not GetSpellInfo(db.auras[i].data.spell) then
+							db.auras[i].data.spell = ""
+							db.auras[i].enabled = false
+							bprint("Not a valid spell name/id or buff name!")
+						end
+					end
+				end,
+				values = execList,
+			},
+			unit = {
+				order = 15,
+				type = "input",
+				name = "Unit to track",
+				get = function(info) return db.auras[i].data.unit end,
+				set = function(info, val) db.auras[i].data.unit = val end
+			}
+		},
+	}
+	
+	-- layout
+	options.args.layout.args["aura" .. i] = {
+		order = 10 + i,
+		type = "group",
+		name = "Aura Button " .. i,
+		args = {
+			size = {
+				order = 1,
+				type = "range",
+				name = "Size",
+				min = 0,
+				max = 100,
+				step = 1,
+				get = function(info) return db.auras[i].layout.size end,
+				set = function(info, val)
+					db.auras[i].layout.size = val
+					clcret:UpdateAuraButtonLayout(i)
+				end,
+			},
+			anchor = {
+				order = 6,
+				type = "select",
+				name = "Anchor",
+				get = function(info) return db.auras[i].layout.point end,
+				set = function(info, val)
+					db.auras[i].layout.point = val
+					clcret:UpdateAuraButtonLayout(i)
+				end,
+				values = anchorPoints,
+			},
+			anchorTo = {
+				order = 6,
+				type = "select",
+				name = "Anchor To",
+				get = function(info) return db.auras[i].layout.pointParent end,
+				set = function(info, val)
+					db.auras[i].layout.pointParent = val
+					clcret:UpdateAuraButtonLayout(i)
+				end,
+				values = anchorPoints,
+			},
+			x = {
+				order = 10,
+				type = "range",
+				name = "X",
+				min = -1000,
+				max = 1000,
+				step = 1,
+				get = function(info) return db.auras[i].layout.x end,
+				set = function(info, val)
+					db.auras[i].layout.x = val
+					clcret:UpdateAuraButtonLayout(i)
+				end,
+			},
+			y = {
+				order = 11,
+				type = "range",
+				name = "Y",
+				min = -1000,
+				max = 1000,
+				step = 1,
+				get = function(info) return db.auras[i].layout.y end,
+				set = function(info, val)
+					db.auras[i].layout.y = val
+					clcret:UpdateAuraButtonLayout(i)
+				end,
+			},
+		},
+	}
+end
+
+
+local function GetSpellChoice()
+	local spellChoice = { none = "None" }
+	for alias, data in pairs(spells) do
+		spellChoice[alias] = data.name
+	end
+	
+	return spellChoice
+end
+function clcret:OptionsAddPriorities()
+	local root = options.args.fcfs.args
+	for i = 1, 10 do
+		root["p"..i] = {
+			name = "",
+			type = "select",
+			order = i,
+			get = function(info)
+				return db.fcfs[i]
+			end,
+			set = function(info, val)
+				db.fcfs[i] = val
+				clcret:UpdateFCFS()
+			end,
+			values = GetSpellChoice,
+		}
+	end
+end
+--]]
 
 function clcret:UpdateFrameSettings()
 	self.frame:SetScale(db.scale)
@@ -427,40 +720,11 @@ function clcret:OnInitialize()
 	db = self.db.char
 	
 	scanFrequency = 1 / db.updatesPerSecond
+	scanFrequencyAuras = 1 / db.updatesPerSecondAuras
 	
 	self:RegisterChatCommand("rl", ReloadUI)
 	self:ScheduleTimer("Init", db.loadDelay)
 end
-
-
-function clcret:OptionsAddPriorities()
-	local root = options.args.fcfs.args
-	for i = 1, 10 do
-		root["p"..i] = {
-			name = "",
-			type = "select",
-			order = i,
-			get = function(info)
-				return db.fcfs[i]
-			end,
-			set = function(info, val)
-				db.fcfs[i] = val
-				clcret:UpdateFCFS()
-			end,
-			values = GetSpellChoice,
-		}
-	end
-	
-end
-
-
-function clcret:DisplayFCFS()
-	for i, data in ipairs(pq) do
-		bprint(data.priority .. " " .. data.name)
-	end
-end
-
-
 function clcret:Init()
 	self:InitSpells()
 	self:OptionsAddPriorities()
@@ -479,6 +743,13 @@ function clcret:Init()
 	self:UpdateShowMethod()
 	
 	self:RegisterEvent("PLAYER_TALENT_UPDATE")
+end
+
+
+function clcret:DisplayFCFS()
+	for i, data in ipairs(pq) do
+		bprint(i .. " " .. data.name)
+	end
 end
 
 
@@ -526,7 +797,7 @@ function clcret:UpdateFCFS()
 			check[alias] = true
 			if alias ~= "none" then
 				numSpells = numSpells + 1
-				newpq[numSpells] = { alias = alias, name = spells[alias].name, priority = i }
+				newpq[numSpells] = { alias = alias, name = spells[alias].name }
 			end
 		end
 	end
@@ -546,15 +817,169 @@ function clcret:PLAYER_TALENT_UPDATE()
 end
 
 local throttle = 0
+local throttleAuras = 0
 local function OnUpdate(this, elapsed)
 	throttle = throttle + elapsed
+	throttleAuras = throttleAuras + elapsed
+	
 	if throttle > scanFrequency then
 		throttle = 0
 		clcret:CheckQueue()
 		clcret:CheckRange()
-		clcret:CheckSoV()
-		clcret:CheckAW()
-		clcret:CheckDP()
+	end
+	
+	if throttleAuras > scanFrequencyAuras then
+		throttleAuras = 0
+		for i = 1, MAX_AURAS do
+			if db.auras[i].enabled then clcret:UpdateAuraButton(i) end
+		end
+	end
+end
+
+function clcret:UpdateAuraButton(index)
+	-- TODO: check docs to see how it's done properly
+	auraIndex = index
+	self[db.auras[index].data.exec]()
+end
+
+
+function clcret:AuraButtonExecNone(index)
+	auraButtons[auraIndex]:Show()
+end
+
+function clcret:AuraButtonExecSkillVisibleAlways()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetSpellTexture(data.spell))
+	end
+	
+	button:Show()
+	
+	if IsUsableSpell(data.spell) then
+		button.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
+	
+	local start, duration = GetSpellCooldown(data.spell)
+	if start ~= button.start then 
+		button.start = start
+		button.duration = duration
+		local cd = start + duration - GetTime()
+		if cd > 0 then
+				button.cooldown:SetCooldown(start, duration)
+				button.cooldown:Show()
+		else
+				button.cooldown:Hide()
+		end
+	end
+end
+
+function clcret:AuraButtonExecSkillVisibleNoCooldown()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetSpellTexture(data.spell))
+	end
+
+	local start, duration = GetSpellCooldown(data.spell)
+	
+	if IsUsableSpell(data.spell) then
+		button.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
+	
+	if duration > 1.6 then
+		button:Hide()
+	else
+		button:Show()
+	end
+end
+
+function clcret:AuraButtonExecGenericBuff()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	if not UnitExists(data.unit) then
+		button:Hide()
+		return
+	end
+	
+	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitBuff(data.unit, data.spell)
+	if name and (caster == "player") then 
+		-- found the debuff
+		-- update only if it changes
+		if button.expirationTime ~= expirationTime then
+			button.expirationTime = expirationTime
+			button.cooldown:SetCooldown(expirationTime - duration, duration)
+		end
+		
+		-- fix texture once
+		if not button.hasTexture then
+			button.texture:SetTexture(icon)
+			button.hasTexture = true
+		end
+		
+		button:Show()
+		
+		if count > 1 then
+			button.stack:SetText(count)
+			button.stack:Show()
+		else
+			button.stack:Hide()
+		end
+	else
+		button:Hide()
+	end
+end
+
+
+function clcret:AuraButtonExecGenericDebuff()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	if not UnitExists(data.unit) then
+		button:Hide()
+		return
+	end
+	
+	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitDebuff(data.unit, data.spell)
+	if name and (caster == "player") then 
+		-- found the debuff
+		-- update only if it changes
+		if button.expirationTime ~= expirationTime then
+			button.expirationTime = expirationTime
+			button.cooldown:SetCooldown(expirationTime - duration, duration)
+		end
+		
+		-- fix texture once
+		if not button.hasTexture then
+			button.texture:SetTexture(icon)
+			button.hasTexture = true
+		end
+		
+		button:Show()
+		
+		if count > 1 then
+			button.stack:SetText(count)
+			button.stack:Show()
+		else
+			button.stack:Hide()
+		end
+	else
+		button:Hide()
 	end
 end
 
@@ -653,14 +1078,6 @@ function clcret:CheckDP()
 	end
 end
 
-local function MySort(a, b)
-	if a.cd == b.cd then
-		return a.priority < b.priority
-	else
-		return a.cd < b.cd
-	end
-end
-
 local lastgcd = 0
 function clcret:CheckQueue()
 	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
@@ -676,25 +1093,25 @@ function clcret:CheckQueue()
 	-- update cooldowns
 	for i=1, numSpells do
 		v = pq[i]
-		pq[i].cdStart, pq[i].cdDuration = GetSpellCooldown(v.name)
-		pq[i].cd = max(0, pq[i].cdStart + pq[i].cdDuration - ctime)
+		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
+		v.cd = max(0, v.cdStart + v.cdDuration - ctime)
 		
 		-- how check
 		if v.alias == "how" then
-			if not IsUsableSpell(v.name) then pq[i].cd = 100 end
+			if not IsUsableSpell(v.name) then v.cd = 100 end
 		-- art of war for exorcism check
 		elseif v.alias == "exo" then
-			if UnitBuff("player", taowSpellName) == nil then pq[i].cd = 100 end
+			if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
 		-- consecration min mana
 		elseif v.alias == "cons" then
-			if (db.manaCons > 0 and mana < db.manaCons) or (db.manaConsPerc and manaPerc < db.manaConsPerc) then pq[i].cd = 100 end
+			if (db.manaCons > 0 and mana < db.manaCons) or (db.manaConsPerc and manaPerc < db.manaConsPerc) then v.cd = 100 end
 		-- divine plea max mana
 		elseif v.alias == "dp" then
-			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then pq[i].cd = 100 end
+			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then v.cd = 100 end
 		end
 		
-		-- pq[i].xcd = pq[i].cd
-		pq[i].xcd = pq[i].cd - gcd
+		-- v.xcd = v.cd
+		v.xcd = v.cd - gcd
 	end
 
 	self:GetBest(1)
@@ -704,18 +1121,17 @@ function clcret:CheckQueue()
 end
 
 function clcret:GetBest(pos)
-	local xprio, xcd, xindex
+	local xcd, xindex, v
 	xindex = 1
-	xprio = 1
 	xcd = pq[1].xcd
 	
 	for i = 1, numSpells do
-		if pq[i].xcd < xcd or (pq[i].xcd == xcd and pq[i].priority < xprio) then
+		v = pq[i]
+		if v.xcd < xcd or (v.xcd == xcd and i < xindex) then
 			xindex = i
-			xprio = pq[i].priority
-			xcd = pq[i].xcd
+			xcd = v.xcd
 		end
-		pq[i].xcd = max(0, pq[i].xcd - 1.5)
+		v.xcd = max(0, v.xcd - 1.5)
 	end
 	self:QD(pos, xindex)
 	pq[xindex].xcd = 1000
@@ -729,14 +1145,14 @@ function clcret:QD(i, j)
 end
 
 function clcret:Enable()
-	if init then
+	if addonInit then
 		addonEnabled = true
 		self.frame:Show()
 	end
 end
 
 function clcret:Disable()
-	if init then
+	if addonInit then
 		addonEnabled = false
 		self.frame:Hide()
 	end
@@ -766,26 +1182,31 @@ end
 
 
 function clcret:CenterHorizontally()
-	db.x = (UIParent:GetWidth() - 75 * db.scale) / 2 / db.scale
+	db.x = (UIParent:GetWidth() - clcretFrame:GetWidth() * db.scale) / 2 / db.scale
 	self:UpdateFrameSettings()
 end
 
 
-function clcret:UpdateUILayout()
-	local button = buttons[2]
-	local opt = db.layout.button2
-	button:SetWidth(opt.size)
-	button:SetHeight(opt.size)
-	button:SetAlpha(opt.alpha)
-	button:ClearAllPoints()
-	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+function clcret:UpdateSkillButtonsLayout()
+	clcretFrame:SetWidth(db.layout.button1.size + 10)
+	clcretFrame:SetHeight(db.layout.button1.size + 10)
+	
+	for i = 1, 2 do
+		local button = buttons[i]
+		local opt = db.layout["button" .. i]
+		button:SetWidth(opt.size)
+		button:SetHeight(opt.size)
+		button:SetAlpha(opt.alpha)
+		button:ClearAllPoints()
+		button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	end
 end
 
 
 function clcret:InitUI()
 	local frame = CreateFrame("Frame", "clcretFrame", UIParent)
-	frame:SetWidth(75)
-	frame:SetHeight(75)
+	frame:SetWidth(db.layout.button1.size + 10)
+	frame:SetHeight(db.layout.button1.size + 10)
 	frame:SetPoint("BOTTOMLEFT", db.x, db.y)
 	
 	frame:EnableMouse(false)
@@ -808,12 +1229,15 @@ function clcret:InitUI()
 	self.frame = frame
 	
 	-- queue
-	buttons[1] = self:CreateButton("B1", 70, "CENTER", clcretFrame, "CENTER", 0, 0)
-	local opt = db.layout.button2
-	buttons[2] = self:CreateButton("B2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
-	buttons[2]:SetAlpha(opt.alpha)
-	-- buttons[3] = self:CreateButton("B3", 30, "CENTER", clcretFrame, "CENTER", 94, -20)
+	local opt
+	for i = 1, 2 do
+		opt = db.layout["button" .. i]
+		buttons[i] = self:CreateButton("B2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+		buttons[i]:SetAlpha(opt.alpha)
+		buttons[i]:Show()
+	end
 	
+	--[[
 	-- aw
 	awButton = self:CreateButton("AW", 33, "CENTER", clcretFrame, "CENTER", -54, -17)
 	awButton.texture:SetTexture(GetSpellTexture(awSpellName))
@@ -826,11 +1250,37 @@ function clcret:InitUI()
 	sovButton.cooldown:Show()
 	sovButton.stack:Show()
 	
+	]]
+	
+	self:InitAuraButtons()
+	
 	frame:SetScale(db.scale)
 	
-	init = true
+	addonInit = true
 	self:Disable()
 	self.frame:SetScript("OnUpdate", OnUpdate)
+end
+
+function clcret:InitAuraButtons()
+	local data, layout
+	for i = 1, 10 do
+		data = db.auras[i].data
+		layout = db.auras[i].layout
+		auraButtons[i] = self:CreateButton("aura"..i, layout.size, layout.point, clcretFrame, layout.pointParent, layout.x, layout.y, true)
+		auraButtons[i].start = 0
+		auraButtons[i].duration = 0
+		auraButtons[i].expirationTime = 0
+		auraButtons[i].hasTexture = false
+	end
+end
+
+function clcret:UpdateAuraButtonLayout(index)
+	local button = auraButtons[index]
+	local opt = db.auras[index].layout
+	button:SetWidth(opt.size)
+	button:SetHeight(opt.size)
+	button:ClearAllPoints()
+	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
 end
 
 function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, hasStack)
@@ -842,6 +1292,7 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	local texture = button:CreateTexture(nil,"BACKGROUND")
 	texture:SetTexture(nil)
 	texture:SetAllPoints(button)
+	texture:SetTexture("Interface\\AddOns\\clcret\\textures\\minimalist")
 	--texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	button.texture = texture
 	
@@ -859,5 +1310,6 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 		button.stack = stack
 	end
 	
+	button:Hide()	
 	return button
 end
