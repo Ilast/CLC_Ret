@@ -349,6 +349,7 @@ function clcret:UpdateShowMethod()
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:CancelAllTimers()
 
 	if db.show == "combat" then
 		if addonEnabled then
@@ -363,6 +364,7 @@ function clcret:UpdateShowMethod()
 		
 	elseif db.show == "valid" then
 		self:PLAYER_TARGET_CHANGED()
+		self:ScheduleRepeatingTimer("PLAYER_TARGET_CHANGED", 1) -- small hack till I find out all the events that affect the target
 		self:RegisterEvent("PLAYER_TARGET_CHANGED")
 	else
 		if addonEnabled then
@@ -384,7 +386,7 @@ end
 -- target change
 function clcret:PLAYER_TARGET_CHANGED()
 	if not addonEnabled then return end
-	if UnitExists("target") and UnitCanAttack("player", "target") then
+	if UnitExists("target") and UnitCanAttack("player", "target") and (not UnitIsDead("target")) then
 		self.frame:Show()
 	else
 		self.frame:Hide()
