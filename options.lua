@@ -336,13 +336,13 @@ function clcret:InitOptions()
 							bprint("Not a valid spell name/id or buff name!")
 						end
 						db.auras[i].enabled = val
-						if not val then self.auraButtons[i]:Hide() end
+						if not val then clcret:AuraButtonHide(i) end
 					end,
 				},
 				spell = {
 					order = 5,
 					type = "input",
-					name = "Spell or buff to track",
+					name = "Spell name/id or buff to track",
 					get = function(info) return db.auras[i].data.spell end,
 					set = function(info, val)
 						if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") then
@@ -351,11 +351,13 @@ function clcret:InitOptions()
 								db.auras[i].data.spell = name
 							else
 								db.auras[i].data.spell = ""
+								db.auras[i].enabled = false
 								bprint("Not a valid spell name or id !")
 							end
 						else
 							db.auras[i].data.spell = val
 						end
+						clcret:AuraButtonResetTexture(i)
 					end,
 				},
 				exec = {

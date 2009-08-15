@@ -15,7 +15,7 @@ local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse ->
 local taowSpellName = GetSpellInfo(59578) 				-- the art of war
 local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
 local dpSpellName = GetSpellInfo(54428)					-- divine plea
-local sovName, sovTextureName							-- sov
+local sovName
 if UnitFactionGroup("player") == "Alliance" then
 	sovName = GetSpellInfo(31803)						-- holy vengeance
 else
@@ -58,14 +58,19 @@ clcret.spells = {
 	ss 		= { id = 53601 },
 }
 
--- default values
+-- ---------------------------------------------------------------------------------------------------------------------
+-- DEFAULT VALUES
+-- ---------------------------------------------------------------------------------------------------------------------
 clcret.defaults = {
 	char = {
+		-- layout settings for the main frame (the black box you toggle on and off)
 		x = 500,
 		y = 300,
 		scale = 1,
 		alpha = 1,
 		show = "always",
+		
+		-- fcfs
 		fcfs = {
 			"how",
 			"cs",
@@ -78,6 +83,7 @@ clcret.defaults = {
 			"none",
 			"none",
 		},
+		
 		-- behaviour
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
@@ -86,6 +92,8 @@ clcret.defaults = {
 		manaDP = 0,
 		manaDPPerc = 0,
 		loadDelay = 10,
+		
+		-- layout of the 2 skill button
 		layout = {
 			button1 = {
 				size = 70,
@@ -104,7 +112,9 @@ clcret.defaults = {
 				pointParent = "BOTTOMRIGHT",
 			}
 		},
-		-- auras
+		
+		-- aura buttons
+		-- 4 examples, rest init to "blank" later
 		auras = {
 			-- 1
 			-- avenging wrath
@@ -182,7 +192,7 @@ clcret.defaults = {
 		}
 	}
 }
--- rest of the auras for default options
+-- blank rest of the auras buttons in default options
 for i = 5, MAX_AURAS do 
 	clcret.defaults.char.auras[i] = {
 		enabled = false,
@@ -200,14 +210,140 @@ for i = 5, MAX_AURAS do
 		},
 	}
 end
+-- ---------------------------------------------------------------------------------------------------------------------
 
-function clcret:UpdateFrameSettings()
-	self.frame:SetScale(db.scale)
-	self.frame:SetAlpha(db.alpha)
-	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- MAIN UPDATE FUNCTION
+-- ---------------------------------------------------------------------------------------------------------------------
+local throttle = 0
+local throttleAuras = 0
+local function OnUpdate(this, elapsed)
+	throttle = throttle + elapsed
+	throttleAuras = throttleAuras + elapsed
+	
+	if throttle > clcret.scanFrequency then
+		throttle = 0
+		clcret:CheckQueue()
+		clcret:CheckRange()
+	end
+	
+	if throttleAuras > clcret.scanFrequencyAuras then
+		throttleAuras = 0
+		for i = 1, MAX_AURAS do
+			if db.auras[i].enabled then clcret:UpdateAuraButton(i) end
+		end
+	end
+end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- INIT
+-- ---------------------------------------------------------------------------------------------------------------------
+function clcret:OnInitialize()
+	-- SAVEDVARS
+	self.db = LibStub("AceDB-3.0"):New("clcretDB", self.defaults)
+	db = self.db.char
+	
+	self.scanFrequency = 1 / db.updatesPerSecond
+	self.scanFrequencyAuras = 1 / db.updatesPerSecondAuras
+	
+	self:RegisterChatCommand("rl", ReloadUI)
+	self:ScheduleTimer("Init", db.loadDelay)
+end
+function clcret:Init()
+	self:InitSpells()
+	self:InitOptions()
+	
+	local AceConfig = LibStub("AceConfig-3.0")
+	AceConfig:RegisterOptionsTable("clcret", self.options)
+	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+	AceConfigDialog:AddToBlizOptions("clcret")
+	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
+	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
+	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
+	
+	self:UpdateFCFS()
+	self:InitUI()
+	self:PLAYER_TALENT_UPDATE()
+	self:UpdateShowMethod()
+	
+	self:RegisterEvent("PLAYER_TALENT_UPDATE")
+end
+-- get the spell names from ids
+function clcret:InitSpells()
+	for alias, data in pairs(self.spells) do
+		data.name = GetSpellInfo(data.id)
+	end
+end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- FCFS Helpers
+-- ---------------------------------------------------------------------------------------------------------------------
+-- print fcfs
+function clcret:DisplayFCFS()
+	for i, data in ipairs(pq) do
+		bprint(i .. " " .. data.name)
+	end
 end
 
+-- make a fcfs from a command line list of arguments
+function clcret:EditQueue(args)
+	local list = { strsplit(" ", args) }
+	
+	-- add args to options
+	local num = 0
+	for i, arg in ipairs(list) do
+		if self.spells[arg] then
+			num = num + 1
+			db.fcfs[num] = arg
+		else
+			bprint(arg .. " not found")
+		end
+	end
+	
+	-- none on the rest
+	if num < 10 then
+		for i = num + 1, 10 do
+			db.fcfs[i] = "none"
+		end
+	end
+	
+	-- redo queue
+	self:UpdateFCFS()
+	self:DisplayFCFS()
+end
 
+-- update pq from fcfs
+function clcret:UpdateFCFS()
+	local newpq = {}
+	local check = {}
+	numSpells = 0
+	
+	for i, alias in ipairs(db.fcfs) do
+		if not check[alias] then -- take care of double entries
+			check[alias] = true
+			if alias ~= "none" then
+				numSpells = numSpells + 1
+				newpq[numSpells] = { alias = alias, name = self.spells[alias].name }
+			end
+		end
+	end
+	
+	pq = newpq
+end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- SHOW WHEN SETTINGS
+-- ---------------------------------------------------------------------------------------------------------------------
+
+-- updates the settings from db and register/unregisters the needed events
 function clcret:UpdateShowMethod()
 	-- unregister all events first
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
@@ -255,99 +391,7 @@ function clcret:PLAYER_TARGET_CHANGED()
 	end
 end
 
-
-function clcret:OnInitialize()
-	-- SAVEDVARS
-	self.db = LibStub("AceDB-3.0"):New("clcretDB", self.defaults)
-	db = self.db.char
-	
-	self.scanFrequency = 1 / db.updatesPerSecond
-	self.scanFrequencyAuras = 1 / db.updatesPerSecondAuras
-	
-	self:RegisterChatCommand("rl", ReloadUI)
-	self:ScheduleTimer("Init", db.loadDelay)
-end
-function clcret:Init()
-	self:InitSpells()
-	self:InitOptions()
-	
-	local AceConfig = LibStub("AceConfig-3.0")
-	AceConfig:RegisterOptionsTable("clcret", self.options)
-	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-	AceConfigDialog:AddToBlizOptions("clcret")
-	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
-	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
-	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
-	
-	self:UpdateFCFS()
-	self:InitUI()
-	self:PLAYER_TALENT_UPDATE()
-	self:UpdateShowMethod()
-	
-	self:RegisterEvent("PLAYER_TALENT_UPDATE")
-end
-
-
-function clcret:DisplayFCFS()
-	for i, data in ipairs(pq) do
-		bprint(i .. " " .. data.name)
-	end
-end
-
-
-function clcret:EditQueue(args)
-	local list = { strsplit(" ", args) }
-	
-	-- add args to options
-	local num = 0
-	for i, arg in ipairs(list) do
-		if self.spells[arg] then
-			num = num + 1
-			db.fcfs[num] = arg
-		else
-			bprint(arg .. " not found")
-		end
-	end
-	
-	-- none on the rest
-	if num < 10 then
-		for i = num + 1, 10 do
-			db.fcfs[i] = "none"
-		end
-	end
-	
-	-- redo queue
-	self:UpdateFCFS()
-	self:DisplayFCFS()
-end
-
-
-function clcret:InitSpells()
-	for alias, data in pairs(self.spells) do
-		self.spells[alias].name = GetSpellInfo(data.id)
-	end
-end
-
-
-function clcret:UpdateFCFS()
-	local newpq = {}
-	local check = {}
-	numSpells = 0
-	
-	for i, alias in ipairs(db.fcfs) do
-		if not check[alias] then -- take care of double entries
-			check[alias] = true
-			if alias ~= "none" then
-				numSpells = numSpells + 1
-				newpq[numSpells] = { alias = alias, name = self.spells[alias].name }
-			end
-		end
-	end
-	
-	pq = newpq
-end
-
-
+-- disable/enable according to spec
 function clcret:PLAYER_TALENT_UPDATE()
 	-- check cs talent
 	local _, _, _, _, rank = GetTalentInfo(3, 23)
@@ -357,38 +401,42 @@ function clcret:PLAYER_TALENT_UPDATE()
 		self:Disable()
 	end
 end
+-- ---------------------------------------------------------------------------------------------------------------------
 
-local throttle = 0
-local throttleAuras = 0
-local function OnUpdate(this, elapsed)
-	throttle = throttle + elapsed
-	throttleAuras = throttleAuras + elapsed
-	
-	if throttle > clcret.scanFrequency then
-		throttle = 0
-		clcret:CheckQueue()
-		clcret:CheckRange()
-	end
-	
-	if throttleAuras > clcret.scanFrequencyAuras then
-		throttleAuras = 0
-		for i = 1, MAX_AURAS do
-			if db.auras[i].enabled then clcret:UpdateAuraButton(i) end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- UPDATE FUNCTIONS
+-- ---------------------------------------------------------------------------------------------------------------------
+
+-- updates the 2 skill buttons
+function clcret:UpdateUI()
+	-- queue
+	for i = 1, 2 do
+		local button = buttons[i]
+		button.texture:SetTexture(GetSpellTexture(dq[i].name))
+			
+		if dq[i].cd > 0 then
+				button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
+				button.cooldown:Show()
+		else
+				button.cooldown:Hide()
 		end
 	end
 end
 
+-- calls the exec function for a specific aura button
 function clcret:UpdateAuraButton(index)
 	-- TODO: check docs to see how it's done properly
 	auraIndex = index
 	self[db.auras[index].data.exec]()
 end
 
-
+-- just show the button for positioning
 function clcret:AuraButtonExecNone(index)
 	auraButtons[auraIndex]:Show()
 end
 
+-- shows a skill use always with a visible cooldown when needed
 function clcret:AuraButtonExecSkillVisibleAlways()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -422,6 +470,7 @@ function clcret:AuraButtonExecSkillVisibleAlways()
 	end
 end
 
+-- shows a skill only when out of cooldown
 function clcret:AuraButtonExecSkillVisibleNoCooldown()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -448,6 +497,7 @@ function clcret:AuraButtonExecSkillVisibleNoCooldown()
 	end
 end
 
+-- checks for a buff cast by player on specified unit
 function clcret:AuraButtonExecGenericBuff()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -486,7 +536,7 @@ function clcret:AuraButtonExecGenericBuff()
 	end
 end
 
-
+-- checks for a debuff cast by player on specified unit
 function clcret:AuraButtonExecGenericDebuff()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -525,22 +575,6 @@ function clcret:AuraButtonExecGenericDebuff()
 	end
 end
 
-
-function clcret:UpdateUI()
-	-- queue
-	for i = 1, 2 do
-		local button = buttons[i]
-		button.texture:SetTexture(GetSpellTexture(dq[i].name))
-			
-		if dq[i].cd > 0 then
-				button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
-				button.cooldown:Show()
-		else
-				button.cooldown:Hide()
-		end
-	end
-end
-
 -- melee range check
 function clcret:CheckRange()
 	local range = IsSpellInRange(self.spells["cs"].name, "target")	
@@ -554,8 +588,12 @@ function clcret:CheckRange()
 		end
 	end
 end
+-- ---------------------------------------------------------------------------------------------------------------------
 
-local lastgcd = 0
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- QUEUE LOGIC
+-- ---------------------------------------------------------------------------------------------------------------------
 function clcret:CheckQueue()
 	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
 	ctime = GetTime()
@@ -599,7 +637,7 @@ function clcret:CheckQueue()
 	
 	self:UpdateUI()
 end
-
+-- gets best skill from pq according to priority and cooldown
 function clcret:GetBest(pos)
 	local xcd, xindex, v
 	xindex = 1
@@ -616,14 +654,19 @@ function clcret:GetBest(pos)
 	self:QD(pos, xindex)
 	pq[xindex].xcd = 1000
 end
-
+-- safe copy 
 function clcret:QD(i, j)
 	dq[i].name = pq[j].name
 	dq[i].cdStart = pq[j].cdStart
 	dq[i].cdDuration = pq[j].cdDuration
 	dq[i].cd = pq[j].cd
 end
+-- ---------------------------------------------------------------------------------------------------------------------
 
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- ENABLE/DISABLE
+-- ---------------------------------------------------------------------------------------------------------------------
 function clcret:Enable()
 	if addonInit then
 		addonEnabled = true
@@ -637,17 +680,14 @@ function clcret:Disable()
 		self.frame:Hide()
 	end
 end
+-- ---------------------------------------------------------------------------------------------------------------------
 
 
-function clcret:OnEnable()
-	self:Enable()
-end
+-- ---------------------------------------------------------------------------------------------------------------------
+-- UPDATE LAYOUT
+-- ---------------------------------------------------------------------------------------------------------------------
 
-function clcret:OnDisable() 
-	self:Disable()
-end
-
-
+-- toggle main frame for drag
 function clcret:ToggleLock()
 	if self.locked then
 		self.locked = false
@@ -660,13 +700,13 @@ function clcret:ToggleLock()
 	end
 end
 
-
+-- center the main frame
 function clcret:CenterHorizontally()
 	db.x = (UIParent:GetWidth() - clcretFrame:GetWidth() * db.scale) / 2 / db.scale
 	self:UpdateFrameSettings()
 end
 
-
+-- update size, width, position, alpha for main buttons 
 function clcret:UpdateSkillButtonsLayout()
 	clcretFrame:SetWidth(db.layout.button1.size + 10)
 	clcretFrame:SetHeight(db.layout.button1.size + 10)
@@ -688,7 +728,36 @@ function clcret:UpdateSkillButtonsLayout()
 	end
 end
 
+-- update size, width, position for aura buttons
+function clcret:UpdateAuraButtonLayout(index)
+	local button = auraButtons[index]
+	local opt = db.auras[index].layout
+	button:SetWidth(opt.size)
+	button:SetHeight(opt.size)
+	button:ClearAllPoints()
+	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	
+	-- adjust border
+	button.topBorder:SetWidth(opt.size)
+	button.bottomBorder:SetWidth(opt.size)
+	button.leftBorder:SetHeight(opt.size)
+	button.rightBorder:SetHeight(opt.size)	
+end
 
+-- update scale, alpha, position for main frame
+function clcret:UpdateFrameSettings()
+	self.frame:SetScale(db.scale)
+	self.frame:SetAlpha(db.alpha)
+	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
+end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- INIT LAYOUT
+-- ---------------------------------------------------------------------------------------------------------------------
+
+-- initialize main frame and all the buttons
 function clcret:InitUI()
 	local frame = CreateFrame("Frame", "clcretFrame", UIParent)
 	frame:SetWidth(db.layout.button1.size + 10)
@@ -724,7 +793,6 @@ function clcret:InitUI()
 	end
 	
 	self:InitAuraButtons()
-	self.auraButtons = auraButtons
 	
 	frame:SetScale(db.scale)
 	
@@ -733,6 +801,7 @@ function clcret:InitUI()
 	self.frame:SetScript("OnUpdate", OnUpdate)
 end
 
+-- initialize aura buttons
 function clcret:InitAuraButtons()
 	local data, layout
 	for i = 1, 10 do
@@ -746,21 +815,7 @@ function clcret:InitAuraButtons()
 	end
 end
 
-function clcret:UpdateAuraButtonLayout(index)
-	local button = auraButtons[index]
-	local opt = db.auras[index].layout
-	button:SetWidth(opt.size)
-	button:SetHeight(opt.size)
-	button:ClearAllPoints()
-	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
-	
-	-- adjust border
-	button.topBorder:SetWidth(opt.size)
-	button.bottomBorder:SetWidth(opt.size)
-	button.leftBorder:SetHeight(opt.size)
-	button.rightBorder:SetHeight(opt.size)	
-end
-
+-- create button
 function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, hasStack)
 	local button = CreateFrame("Frame", "clcret"..name, parent)
 	button:SetWidth(size)
@@ -768,9 +823,8 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	button:SetPoint(point, parent, pointParent, offsetx, offsety)
 	
 	local texture = button:CreateTexture(nil,"BACKGROUND")
-	texture:SetTexture(nil)
 	texture:SetAllPoints(button)
-	texture:SetTexture()
+	texture:SetTexture(BGTEX)
 	texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 	button.texture = texture
 	
@@ -828,4 +882,15 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	
 	button:Hide()	
 	return button
+end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
+-- 2 small helper functions
+function clcret:AuraButtonResetTexture(index)
+	auraButtons[index].hasTexture = false
+end
+
+function clcret:AuraButtonHide(index)
+	auraButtons[index]:Hide()
 end
