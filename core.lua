@@ -1,1276 +1,818 @@
--- get beacon and ss buff names from the spells
-local buffBoL = GetSpellInfo(53563)
-local buffSS = GetSpellInfo(53601)
-local buffFoL = GetSpellInfo(66922)
-local buffJotP = GetSpellInfo(53655)
--- the icon for SS buff since the proc has the same name
-local buffIconSS = "Interface\\Icons\\Ability_Paladin_BlessedMending"
-
-local layoutPlayerBars = { "jotp", "bol", "ss" }
-
--- TOOLS
 local function bprint(s)
-	DEFAULT_CHAT_FRAME:AddMessage("clcbpt: "..tostring(s))
+	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
 
-local clcbpt = LibStub("AceAddon-3.0"):NewAddon("clcbpt", "AceEvent-3.0", "AceConsole-3.0")
-local Media = LibStub("LibSharedMedia-3.0", true)
+clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0", "AceTimer-3.0")
 
-DEFAULT_LSM_FONT = Media:GetDefault("font")
-DEFAULT_LSM_TEXTURE = 'Minimalist'
-DEFAULT_LSM_SOUND = 'BellTollNightElf'
+local MAX_AURAS = 10
+local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
+local BORDER_WIDTH = 2
 
--- register the sound I used so far
-if not Media:IsValid('sound', 'BellTollNightElf') then
-	Media:Register('sound', 'BellTollNightElf', 'Sound\\Doodad\\BellTollNightElf.wav')
-end
--- there seems to be no sound in LSM without other addons, so set the bell default
-if DEFAULT_LSM_SOUND == "None" then
-	DEFAULT_LSM_SOUND = 'BellTollNightElf'
-end
-
--- register the minimalist texture too
-if not Media:IsValid('statusbar', 'Minimalist') then
-	Media:Register('statusbar', 'Minimalist', 'Interface\\AddOns\\clcbpt\\textures\\minimalist')
+local taowSpellName = GetSpellInfo(59578) 				-- the art of war
+local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
+local dpSpellName = GetSpellInfo(54428)					-- divine plea
+local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> used for gcd
+local sovName, sovTextureName							-- sov
+if UnitFactionGroup("player") == "Alliance" then
+	sovName = GetSpellInfo(31803)						-- holy vengeance
+else
+	sovName = GetSpellInfo(53742)						-- blood corruption
 end
 
-local bgtex = 'Interface\\AddOns\\clcbpt\\textures\\minimalist'
+local pq	-- queue generated from fcfs
+local dq = {	-- display queue
+	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
+	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
+}
+
+local buttons = {}
+local auraButtons = {}
+local auraIndex
+local addonEnabled = false
+
+local addonInit = false
+clcret.locked = true
+local numSpells
 
 local db
-local scanDelay
 
--- default options
+clcret.spells = {
+	how		= { id = 48806 },
+	cs 		= { id = 35395 },
+	ds 		= { id = 53385 },
+	jol 	= { id = 53408 },		-- jow
+	cons 	= { id = 48819 },
+	exo 	= { id = 48801 },
+	dp 		= { id = 54428 },
+	ss 		= { id = 53601 },
+}
+
 -- default values
-local defaults = {
+clcret.defaults = {
 	char = {
-		performance = {
-			barFPS = 20,
-			scanFrequency = 2,
+		x = 500,
+		y = 300,
+		scale = 1,
+		alpha = 1,
+		show = "always",
+		fcfs = {
+			"how",
+			"cs",
+			"jol",
+			"ds",
+			"cons",
+			"exo",
+			"none",
+			"none",
+			"none",
+			"none",
 		},
-		player = {
-			growUp = true,
-			x = 400,
-			y = 400,
-			width = 200,
-			height = 9,
-			font = 9,
-			fontName = DEFAULT_LSM_FONT,
-			bars = {
-				ss = {
-					color = {0, 0, 1, 1},
-					texture = DEFAULT_LSM_TEXTURE,
-					sound = DEFAULT_LSM_SOUND,
-					soundWarn = true,
-					pulseWarn = true,
-					enabled = true,
-				},
-				bol = {
-					color = {1, 0, 0, 1},
-					texture = DEFAULT_LSM_TEXTURE,
-					sound = DEFAULT_LSM_SOUND,
-					soundWarn = true,
-					pulseWarn = true,
-					enabled = true,
-				},
-				jotp = {
-					color = {1, 1, 0, 1},
-					texture = DEFAULT_LSM_TEXTURE,
-					sound = DEFAULT_LSM_SOUND,
-					soundWarn = true,
-					pulseWarn = true,
-					enabled = true,
-				},
+		-- behaviour
+		updatesPerSecond = 10,
+		updatesPerSecondAuras = 5,
+		manaCons = 0,
+		manaConsPerc = 0,
+		manaDP = 0,
+		manaDPPerc = 0,
+		loadDelay = 10,
+		layout = {
+			button1 = {
+				size = 70,
+				alpha = 1,
+				x = 0,
+				y = 0,
+				point = "CENTER",
+				pointParent = "CENTER",
 			},
-			fol = {
-				color = {0, 1, 0, 1},
-				texture = DEFAULT_LSM_TEXTURE,
-				enabled = true,
+			button2 = {
+				size = 40,
+				alpha = 1,
+				x = 50,
+				y = 0,
+				point = "BOTTOMLEFT",
+				pointParent = "BOTTOMRIGHT",
 			}
 		},
-		group = {
-			growUp = true,
-			x = 400,
-			y = 300,
-			width = 130,
-			height = 8,
-			font = 8,
-			fontName = DEFAULT_LSM_FONT,
-			texture = DEFAULT_LSM_TEXTURE,
-			enabled = true,
+		-- auras
+		auras = {
+			-- 1
+			-- avenging wrath
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecSkillVisibleAlways",
+					spell = awSpellName,
+					texture = "",
+					unit = "",
+				},
+				layout = {
+					size = 30,
+					x = 0,
+					y = 5,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			},
+			
+			-- 2
+			-- divine plea
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecSkillVisibleNoCooldown",
+					spell = dpSpellName,
+					unit = "",
+				},
+				layout = {
+					size = 30,
+					x = -35,
+					y = 5,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			},
+			
+			-- 3
+			-- sov
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecGenericDebuff",
+					spell = sovName,
+					unit = "target",
+				},
+				layout = {
+					size = 30,
+					x = 0,
+					y = 40,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			},
+			
+			
+			-- 4
+			-- taow
+			{
+				enabled = true,
+				data = {
+					exec = "AuraButtonExecGenericBuff",
+					spell = taowSpellName,
+					unit = "player",
+				},
+				layout = {
+					size = 30,
+					x = -35,
+					y = 40,
+					point = "BOTTOMRIGHT",
+					pointParent = "BOTTOMLEFT",
+				},
+			}
+		}
+	}
+}
+
+for i = 5, MAX_AURAS do 
+	clcret.defaults.char.auras[i] = {
+		enabled = false,
+		data = {
+			exec = "AuraButtonExecNone",
+			spell = "",
+			unit = "",
 		},
-		warn = {
-			sound = true,
-			pulse = true,
-			pulseDuration = 2,
-			timer = 3,
-			pulseMin = 100,
-			pulseMax = 150,
+		layout = {
+			size = 30,
 			x = 0,
 			y = 0,
+			point = "BOTTOM",
+			pointParent = "TOP",
 		},
 	}
-}
+end
 
-local options = {
-	type = "group",
-	args = {
-		-- anchors
-		anchors = {
-			type = "execute",
-			name = "Anchors",
-			func = function()
-				clcbpt:ToggleAnchors()
-			end,
-		},
-		
-		-- scan frequency
-		scans = {
-			type = "range",
-			name = "Scans per second",
-			min = 1,
-			max = 10,
-			step = 1,
-			get = function(info) return db.performance.scanFrequency end,
-			set = function(info, val)
-				db.performance.scanFrequency = val
-				scanDelay = 1 / db.performance.scanFrequency
-			end,
-		},
-		
-		-- warnings
-		warnings = {
-			type = "group",
-			name = "Warnings",
-			order = 3,
-			args = {
-				soundToggle = {
-					type = "toggle",
-					name = "Sound Warnings",
-					get = function(info) return db.warn.sound end,
-					set = function(info, val) db.warn.sound = val end,
-			
-				},
-				pulseToggle = {
-					type = "toggle",
-					name = "Pulse Warnings",
-					get = function(info) return db.warn.pulse end,
-					set = function(info, val) db.warn.pulse = val end,
-			
-				},
-				awarnTimer = {
-					type = "range",
-					name = "Warn Time",
-					min = 1,
-					max = 60,
-					step = 1,
-					bigStep = 1,
-					get = function(info) return db.warn.timer end,
-					set = function(info, val) db.warn.timer = val end,
-				},
-				bpulseDuration = {
-					type = "range",
-					name = "Pulse Duration",
-					min = 1,
-					max = 10,
-					step = 1,
-					bigStep = 1,
-					get = function(info) return db.warn.pulseDuration end,
-					set = function(info, val) db.warn.pulseDuration = val end,
-				},
-				pulseSizeMin = {
-					type = "range",
-					name = "Pulse Size Min",
-					min = 10,
-					max = 400,
-					step = 1,
-					bigStep = 10,
-					get = function(info) return db.warn.pulseMin end,
-					set = function(info, val)
-						db.warn.pulseMin = val
-						clcbpt:NewPulse("Interface\\Icons\\ability_paladin_beaconoflight")
-					end,
-				},
-				pulseSizeMax = {
-					type = "range",
-					name = "Pulse Size Max",
-					min = 15,
-					max = 500,
-					step = 1,
-					bigStep = 10,
-					get = function(info) return db.warn.pulseMax end,
-					set = function(info, val)
-						db.warn.pulseMax = val
-						clcbpt:NewPulse("Interface\\Icons\\ability_paladin_beaconoflight")
-					end,
-				},
-				pulsePosX = {
-					type = "range",
-					name = "Pulse Position Horizontal",
-					min = -2000,
-					max = 2000,
-					step = 1,
-					bigStep = 10,
-					get = function(info) return db.warn.x end,
-					set = function(info, val)
-						db.warn.x = val
-						clcbpt:NewPulse("Interface\\Icons\\ability_paladin_beaconoflight")
-					end,
-				},
-				pulsePosY = {
-					type = "range",
-					name = "Pulse Position Vertical",
-					min = -2000,
-					max = 2000,
-					step = 1,
-					bigStep = 10,
-					get = function(info) return db.warn.y end,
-					set = function(info, val)
-						db.warn.y = val
-						clcbpt:NewPulse("Interface\\Icons\\ability_paladin_beaconoflight")
-					end,
-				},
-			}
-		}, 
-		
-		-- bars
-		player = {
-			type = "group",
-			name = "Player",
-			order = 1,
-			args = {
-				growUp = {
-					order = 1,
-					type = "toggle",
-					name = "Grow Up",
-					get = function(info) return db.player.growUp end,
-					set = function(info, val) db.player.growUp = val end,
-				},
-				width = {
-					type = "range",
-					name = "Width",
-					min = 10,
-					max = 400,
-					step = 1,
-					bigStep = 10,
-					order = 5,
-					get = function(info) return db.player.width end,
-					set = function(info, val)
-						clcbpt:PlayerBarsUpdateLayout()
-						db.player.width = val
-					end,
-				},
-				height = {
-					type = "range",
-					name = "Height",
-					min = 5,
-					max = 100,
-					step = 1,
-					bigStep = 5,
-					order = 6,
-					get = function(info) return db.player.height end,
-					set = function(info, val)
-						db.player.height = val
-						clcbpt:PlayerBarsUpdateLayout()
-					end,
-				},
-				font = {
-					type = "range",
-					name = "Font",
-					min = 5,
-					max = 50,
-					step = 1,
-					bigStep = 1,
-					order = 10,
-					get = function(info) return db.player.font end,
-					set = function(info, val)
-						db.player.font = val
-						clcbpt:PlayerBarsUpdateLayout()
-					end,
-				},
-				fontName = {
-					name = "Font Family",
-					type = "select",
-					order = 11,
-					get = function()
-						return db.player.fontName
-					end,
-					set = function(info, value)
-						db.player.fontName = value
-						clcbpt:PlayerBarsUpdateLayout()
-					end,
-					values = Media:HashTable('font'),
-					dialogControl = 'LSM30_Font',
-				},
-				fol = {
-					type = "group",
-					name = "fol hot",
-					order = 1,
-					args = {
-						enabled = {
-							type = "toggle",
-							name = "Enabled",
-							order = 1,
-							get = function(info) return db.player.fol.enabled end,
-							set = function(info, val)
-								db.player.fol.enabled = val
-							end,
-						},
-						color = {
-							type = "color",
-							name = "color",
-							order = 2,
-							hasAlpha = true,
-							get = function(info) return unpack(db.player.fol.color) end,
-							set = function(info, r, g, b, a)
-								db.player.fol.color = {r, g, b, a}
-								clcbpt:FolBarsUpdateLayout()
-							end,
-						},
-						texture = {
-							name = "texture",
-							type = "select",
-							order = 3,
-							get = function()
-								return db.player.fol.texture
-							end,
-							set = function(info, value)
-								db.player.fol.texture = value
-								clcbpt:FolBarsUpdateLayout()
-							end,
-							values = Media:HashTable('statusbar'),
-							dialogControl = 'LSM30_Statusbar',
-						},
-					},
-				},
-			},
-		},
-		group = {
-			type = "group",
-			name = "Group",
-			order = 2,
-			args = {
-				enabled = {
-					type = "toggle",
-					name = "Enabled",
-					order = 1,
-					get = function(info) return db.group.enabled end,
-					set = function(info, val)
-						db.group.enabled = val
-					end,
-				},
-				growUp = {
-					order = 2,
-					type = "toggle",
-					name = "Grow Up",
-					get = function(info) return db.group.growUp end,
-					set = function(info, val) db.group.growUp = val end,
-				},
-				width = {
-					type = "range",
-					name = "Width",
-					order = 4,
-					min = 10,
-					max = 400,
-					step = 1,
-					bigStep = 10,
-					get = function(info) return db.group.width end,
-					set = function(info, val)
-						db.group.width = val
-						clcbpt:GroupBarsUpdateLayout()
-					end,
-				},
-				height = {
-					type = "range",
-					name = "Height",
-					order = 5,
-					min = 5,
-					max = 100,
-					step = 1,
-					bigStep = 5,
-					get = function(info) return db.group.height end,
-					set = function(info, val)
-						db.group.height = val
-						clcbpt:GroupBarsUpdateLayout()
-					end,
-				},
-				font = {
-					type = "range",
-					name = "Font",
-					order = 6,
-					min = 5,
-					max = 50,
-					step = 1,
-					bigStep = 1,
-					get = function(info) return db.group.font end,
-					set = function(info, val)
-						db.group.font = val
-						clcbpt:GroupBarsUpdateLayout()
-					end,
-				},
-				fontName = {
-					name = "Font Family",
-					type = "select",
-					order = 7,
-					get = function()
-						return db.group.fontName
-					end,
-					set = function(info, value)
-						db.group.fontName = value
-						clcbpt:GroupBarsUpdateLayout()
-					end,
-					values = Media:HashTable('font'),
-					dialogControl = 'LSM30_Font',
-				},
-				texture = {
-					name = "Texture",
-					type = "select",
-					order = 8,
-					get = function()
-						return db.group.texture
-					end,
-					set = function(info, value)
-						db.group.texture = value
-						clcbpt:GroupBarsUpdateLayout()
-					end,
-					values = Media:HashTable('statusbar'),
-					dialogControl = 'LSM30_Statusbar',
-				},
-			}
-		}
-	}
-}
+function clcret:UpdateFrameSettings()
+	self.frame:SetScale(db.scale)
+	self.frame:SetAlpha(db.alpha)
+	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
+end
 
-function clcbpt:AddPlayerBarsOptions()
-	for _, name in ipairs(layoutPlayerBars) do
-		options.args.player.args[name] = {
-			type = "group",
-			name = name,
-			order = 2,
-			args = {
-				enabled = {
-					type = "toggle",
-					name = "Enabled",
-					order = 1,
-					get = function(info) return db.player.bars[name].enabled end,
-					set = function(info, val)
-						db.player.bars[name].enabled = val
-					end,
-				},
-				color = {
-					type = "color",
-					name = "color",
-					order = 2,
-					hasAlpha = true,
-					get = function(info) return unpack(db.player.bars[name].color) end,
-					set = function(info, r, g, b, a)
-						db.player.bars[name].color = {r, g, b, a}
-						clcbpt:PlayerBarUpdateLayout(name)
-					end,
-				},
-				texture = {
-					name = "texture",
-					type = "select",
-					order = 3,
-					get = function()
-						return db.player.bars[name].texture
-					end,
-					set = function(info, value)
-						db.player.bars[name].texture = value
-						clcbpt:PlayerBarUpdateLayout(name)
-					end,
-					values = Media:HashTable('statusbar'),
-					dialogControl = 'LSM30_Statusbar',
-				},
-				sound = {
-					name = "sound",
-					type = "select",
-					order = 4,
-					get = function()
-						return db.player.bars[name].sound
-					end,
-					set = function(info, value)
-						db.player.bars[name].sound = value
-					end,
-					values = Media:HashTable('sound'),
-					dialogControl = 'LSM30_Sound',
-				},
-				pulseWarn = {
-					type = "toggle",
-					name = "Pulse Warning",
-					order = 5,
-					get = function(info) return db.player.bars[name].pulseWarn end,
-					set = function(info, val)
-						db.player.bars[name].pulseWarn = val
-					end,
-				},
-				soundWarn = {
-					type = "toggle",
-					name = "Sound Warning",
-					order = 6,
-					get = function(info) return db.player.bars[name].soundWarn end,
-					set = function(info, val)
-						db.player.bars[name].soundWarn = val
-					end,
-				},
-			}
-		}
+
+function clcret:UpdateShowMethod()
+	-- unregister all events first
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+
+	if db.show == "combat" then
+		if addonEnabled then
+			if UnitAffectingCombat("player") then
+				self.frame:Show()
+			else
+				self.frame:Hide()
+			end
+		end
+		self:RegisterEvent("PLAYER_REGEN_ENABLED")
+		self:RegisterEvent("PLAYER_REGEN_DISABLED")
+		
+	elseif db.show == "valid" then
+		self:PLAYER_TARGET_CHANGED()
+		self:RegisterEvent("PLAYER_TARGET_CHANGED")
+	else
+		if addonEnabled then
+			self.frame:Show()
+		end
 	end
 end
 
-local roster = { "player" }
-
-local groupBars = {}
-local numGroupBars = 0
-local usedGroupBars = 0
-local usedGroupBarsLast = 0
-
-local playerBars = {}
-local orderPlayerBars
-
-local folBars = {}
-local numFolBars = 0
-local usedFolBars = 0
-local usedFolBarsLast = 0
-local orderFolBars
-
-local updateStepBars
-local scanDelay
-
-local showAnchors = false
-
-local pulse
-
-
-local throttleCheckAuras = 0
-local throttleBarsUpdate = 0
-local throttleFolUpdate = 0
-local function OnUpdate(this, elapsed)
-	throttleFolUpdate = throttleFolUpdate + elapsed
-	if throttleFolUpdate > 0.05 then
-		clcbpt:FolBarsUpdate()
-		clcbpt:PulseUpdate()
-		throttleFolUpdate = 0
-	end
-
-	throttleBarsUpdate = throttleBarsUpdate + elapsed
-	if throttleBarsUpdate > 0.1 then
-		clcbpt:PlayerBarsUpdate()
-		clcbpt:GroupBarsUpdate()
-		throttleBarsUpdate = 0
-	end
-
-	throttleCheckAuras = throttleCheckAuras + elapsed
-	if throttleCheckAuras > scanDelay then
-		clcbpt:CheckAuras()
-		throttleCheckAuras = 0
+-- out of combat
+function clcret:PLAYER_REGEN_ENABLED()
+	if not addonEnabled then return end
+	self.frame:Hide()
+end
+-- in combat
+function clcret:PLAYER_REGEN_DISABLED()
+	if not addonEnabled then return end
+	self.frame:Show()
+end
+-- target change
+function clcret:PLAYER_TARGET_CHANGED()
+	if not addonEnabled then return end
+	if UnitExists("target") and UnitCanAttack("player", "target") then
+		self.frame:Show()
+	else
+		self.frame:Hide()
 	end
 end
 
 
-function clcbpt:OnInitialize()
+function clcret:OnInitialize()
 	-- SAVEDVARS
-	self.db = LibStub("AceDB-3.0"):New("clcbptDB", defaults)
+	self.db = LibStub("AceDB-3.0"):New("clcretDB", self.defaults)
 	db = self.db.char
 	
-	-- throttles
-	updateStepBars = 1 / db.performance.barFPS
-	scanDelay = 1 / db.performance.scanFrequency
+	self.scanFrequency = 1 / db.updatesPerSecond
+	self.scanFrequencyAuras = 1 / db.updatesPerSecondAuras
 	
-	player = UnitName("player")
-	
-	-- options
-	self:AddPlayerBarsOptions()
+	self:RegisterChatCommand("rl", ReloadUI)
+	self:ScheduleTimer("Init", db.loadDelay)
+end
+function clcret:Init()
+	self:InitSpells()
+	self:InitOptions()
 	
 	local AceConfig = LibStub("AceConfig-3.0")
-	AceConfig:RegisterOptionsTable("clcbpt", options)
-	
+	AceConfig:RegisterOptionsTable("clcret", self.options)
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-	AceConfigDialog:AddToBlizOptions("clcbpt")
+	AceConfigDialog:AddToBlizOptions("clcret")
+	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
+	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
+	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
 	
-	-- register chat commands
-	-- self:RegisterChatCommand("rl", ReloadUI)
-	self:RegisterChatCommand("clcbpt", function() InterfaceOptionsFrame_OpenToCategory("clcbpt") end)
+	self:UpdateFCFS()
+	self:InitUI()
+	self:PLAYER_TALENT_UPDATE()
+	self:UpdateShowMethod()
 	
-	-- roster
-	self:RegisterEvent("PARTY_MEMBERS_CHANGED", "UpdateRoster")
-	self:RegisterEvent("RAID_ROSTER_UPDATE", "UpdateRoster")
-	
-	-- create anchors
-	self:CreateAnchor("Player", db.player.width, db.player.height, db.player.x, db.player.y)
-	self:CreateAnchor("Group", db.group.width, db.group.height, db.group.x, db.group.y)
-	
-	self:CreatePulse()
-	self:SetupPlayerBars()
-	self:PlayerBarsUpdateLayout()
-	
-	-- update frame
-	self.uf = CreateFrame("Frame")
-	self.uf:SetScript("OnUpdate", OnUpdate)
+	self:RegisterEvent("PLAYER_TALENT_UPDATE")
 end
 
 
-function clcbpt:CreatePulse()
-	local frame = CreateFrame("Frame", "clcPulse", UIParent)
-	frame.icon = frame:CreateTexture(nil, "BACKGROUND")
-	frame.icon:SetAllPoints()
-	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	frame:Hide()
-	
-	pulse = frame
-	pulse.start = 0
-	pulse.duration = 0
-end
-function clcbpt:NewPulse(icon)
-	-- update position too, for the "interactive" options
-	local opt = db.warn
-	pulse:SetPoint("CENTER", UIParent, opt.x, opt.y)
-	pulse.start = GetTime()
-	pulse.duration = opt.pulseDuration
-
-	pulse.icon:SetTexture(icon)
-	pulse:SetWidth(opt.pulseMax)
-	pulse:SetHeight(opt.pulseMax)
-	pulse:SetAlpha(1)
-	
-	pulse:Show()
-end
-function clcbpt:PulseUpdate()
-	local current = GetTime() - pulse.start
-	if current > pulse.duration then
-		pulse:Hide()
-		return
-	end
-	
-	-- last 1s pulse
-	---[[
-	local opt = db.warn
-	if (pulse.duration - current) < 1 then
-		current = pulse.duration - current
-		local size = opt.pulseMin + (opt.pulseMax - opt.pulseMin) * current
-		pulse:SetWidth(size)
-		pulse:SetHeight(size)
-		pulse:SetAlpha(current)
-	end
-end
-
--- warning function
-function clcbpt:Warn(name)
-	local bar = playerBars[name]
-	local opt = db.player.bars[name]
-
-	if db.warn.sound and opt.soundWarn then
-		PlaySoundFile(Media:Fetch('sound', opt.sound))
-	end
-	
-	if db.warn.pulse and opt.pulseWarn then
-		self:NewPulse(bar.optIcon)
+function clcret:DisplayFCFS()
+	for i, data in ipairs(pq) do
+		bprint(i .. " " .. data.name)
 	end
 end
 
 
-function clcbpt:UpdateRoster()
-	local xr = {} -- roster
+function clcret:EditQueue(args)
+	local list = { strsplit(" ", args) }
 	
-	local unit
-	if GetNumRaidMembers() > 0 then
-		for i = 1, 40 do 
-			unit = "raid" .. i
-			if UnitExists(unit) then table.insert(xr, unit) end
+	-- add args to options
+	local num = 0
+	for i, arg in ipairs(list) do
+		if self.spells[arg] then
+			num = num + 1
+			db.fcfs[num] = arg
+		else
+			bprint(arg .. " not found")
 		end
-	else
-		table.insert(xr, "player")
-		if GetNumPartyMembers() > 0 then
-			for i = 1, 4 do 
-				unit = "party" .. i
-				if UnitExists(unit) then table.insert(xr, unit) end
+	end
+	
+	-- none on the rest
+	if num < 10 then
+		for i = num + 1, 10 do
+			db.fcfs[i] = "none"
+		end
+	end
+	
+	-- redo queue
+	self:UpdateFCFS()
+	self:DisplayFCFS()
+end
+
+
+function clcret:InitSpells()
+	for alias, data in pairs(self.spells) do
+		self.spells[alias].name = GetSpellInfo(data.id)
+	end
+end
+
+
+function clcret:UpdateFCFS()
+	local newpq = {}
+	local check = {}
+	numSpells = 0
+	
+	for i, alias in ipairs(db.fcfs) do
+		if not check[alias] then -- take care of double entries
+			check[alias] = true
+			if alias ~= "none" then
+				numSpells = numSpells + 1
+				newpq[numSpells] = { alias = alias, name = self.spells[alias].name }
 			end
 		end
 	end
+	
+	pq = newpq
+end
+
+
+function clcret:PLAYER_TALENT_UPDATE()
+	-- check cs talent
+	local _, _, _, _, rank = GetTalentInfo(3, 23)
+	if rank == 1 then
+		self:Enable()
+	else
+		self:Disable()
+	end
+end
+
+local throttle = 0
+local throttleAuras = 0
+local function OnUpdate(this, elapsed)
+	throttle = throttle + elapsed
+	throttleAuras = throttleAuras + elapsed
+	
+	if throttle > clcret.scanFrequency then
+		throttle = 0
+		clcret:CheckQueue()
+		clcret:CheckRange()
+	end
+	
+	if throttleAuras > clcret.scanFrequencyAuras then
+		throttleAuras = 0
+		for i = 1, MAX_AURAS do
+			if db.auras[i].enabled then clcret:UpdateAuraButton(i) end
+		end
+	end
+end
+
+function clcret:UpdateAuraButton(index)
+	-- TODO: check docs to see how it's done properly
+	auraIndex = index
+	self[db.auras[index].data.exec]()
+end
+
+
+function clcret:AuraButtonExecNone(index)
+	auraButtons[auraIndex]:Show()
+end
+
+function clcret:AuraButtonExecSkillVisibleAlways()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetSpellTexture(data.spell))
+	end
+	
+	button:Show()
+	
+	if IsUsableSpell(data.spell) then
+		button.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
+	
+	local start, duration = GetSpellCooldown(data.spell)
+	if start ~= button.start then 
+		button.start = start
+		button.duration = duration
+		local cd = start + duration - GetTime()
+		if cd > 0 then
+				button.cooldown:SetCooldown(start, duration)
+				button.cooldown:Show()
+		else
+				button.cooldown:Hide()
+		end
+	end
+end
+
+function clcret:AuraButtonExecSkillVisibleNoCooldown()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetSpellTexture(data.spell))
+	end
+
+	local start, duration = GetSpellCooldown(data.spell)
+	
+	if IsUsableSpell(data.spell) then
+		button.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
+	
+	if duration > 1.6 then
+		button:Hide()
+	else
+		button:Show()
+	end
+end
+
+function clcret:AuraButtonExecGenericBuff()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	if not UnitExists(data.unit) then
+		button:Hide()
+		return
+	end
+	
+	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitBuff(data.unit, data.spell)
+	if name and (caster == "player") then 
+		-- found the debuff
+		-- update only if it changes
+		if button.expirationTime ~= expirationTime then
+			button.expirationTime = expirationTime
+			button.cooldown:SetCooldown(expirationTime - duration, duration)
+		end
+		
+		-- fix texture once
+		if not button.hasTexture then
+			button.texture:SetTexture(icon)
+			button.hasTexture = true
+		end
+		
+		button:Show()
+		
+		if count > 1 then
+			button.stack:SetText(count)
+			button.stack:Show()
+		else
+			button.stack:Hide()
+		end
+	else
+		button:Hide()
+	end
+end
+
+
+function clcret:AuraButtonExecGenericDebuff()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	if not UnitExists(data.unit) then
+		button:Hide()
+		return
+	end
+	
+	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitDebuff(data.unit, data.spell)
+	if name and (caster == "player") then 
+		-- found the debuff
+		-- update only if it changes
+		if button.expirationTime ~= expirationTime then
+			button.expirationTime = expirationTime
+			button.cooldown:SetCooldown(expirationTime - duration, duration)
+		end
+		
+		-- fix texture once
+		if not button.hasTexture then
+			button.texture:SetTexture(icon)
+			button.hasTexture = true
+		end
+		
+		button:Show()
+		
+		if count > 1 then
+			button.stack:SetText(count)
+			button.stack:Show()
+		else
+			button.stack:Hide()
+		end
+	else
+		button:Hide()
+	end
+end
+
+
+function clcret:UpdateUI()
+	-- queue
+	for i = 1, 2 do
+		local button = buttons[i]
+		button.texture:SetTexture(GetSpellTexture(dq[i].name))
 			
-	roster = xr
+		if dq[i].cd > 0 then
+				button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
+				button.cooldown:Show()
+		else
+				button.cooldown:Hide()
+		end
+	end
+end
+
+-- melee range check
+function clcret:CheckRange()
+	local range = IsSpellInRange(self.spells["cs"].name, "target")	
+	if range ~= nil and range == 0 then
+		for i = 1, 2 do
+			buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
+		end
+	else
+		for i = 1, 2 do
+			buttons[i].texture:SetVertexColor(1, 1, 1)
+		end
+	end
 end
 
 
-function clcbpt:CheckAuras()
-	local name, icon, duration, expirationTime, caster, targetName
+local lastgcd = 0
+function clcret:CheckQueue()
+	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
+	ctime = GetTime()
 	
-	-- jotp check
-	if db.player.bars["jotp"].enabled then
-		name, _, _, _, _, duration, expirationTime = UnitBuff("player", buffJotP)
-		self:UpdatePlayerBarData("jotp", duration or 0, expirationTime or 0, "JotP")
-	end
+	mana = UnitPower("player")
+	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
 	
-	local nobol = true
-	local noss = true
+	-- get gcd
+	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
+	gcd = max(0, gcdStart + gcdDuration - ctime)
 	
-	local usedGroupBars = 0
-	local usedFolBars = 0
-
-	---[[
-	local i
-	for _, unit in ipairs(roster) do
-		-- check BoL
-		if db.player.bars["bol"].enabled then
-			if nobol then
-				name, _, _, _, _, duration, expirationTime, caster = UnitBuff(unit, buffBoL)
-				if name and caster == "player" then
-					nobol = false
-					self:UpdatePlayerBarData("bol", duration, expirationTime, UnitName(unit))
-				end
-			end
+	-- update cooldowns
+	for i=1, numSpells do
+		v = pq[i]
+		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
+		v.cd = max(0, v.cdStart + v.cdDuration - ctime)
+		
+		-- how check
+		if v.alias == "how" then
+			if not IsUsableSpell(v.name) then v.cd = 100 end
+		-- art of war for exorcism check
+		elseif v.alias == "exo" then
+			if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
+		-- consecration min mana
+		elseif v.alias == "cons" then
+			if (db.manaCons > 0 and mana < db.manaCons) or (db.manaConsPerc and manaPerc < db.manaConsPerc) then v.cd = 100 end
+		-- divine plea max mana
+		elseif v.alias == "dp" then
+			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then v.cd = 100 end
 		end
 		
-		if db.player.fol.enabled then
-			-- check for fol hot
-			name, _, _, _, _, duration, expirationTime, caster = UnitBuff(unit, buffFoL)
-			if name and caster == "player" then
-				usedFolBars = usedFolBars + 1
-				self:UpdateFolBarData(usedFolBars, duration, expirationTime, UnitName(unit))
-			end
+		-- v.xcd = v.cd
+		v.xcd = v.cd - gcd
+	end
+
+	self:GetBest(1)
+	self:GetBest(2)
+	
+	self:UpdateUI()
+end
+
+function clcret:GetBest(pos)
+	local xcd, xindex, v
+	xindex = 1
+	xcd = pq[1].xcd
+	
+	for i = 1, numSpells do
+		v = pq[i]
+		if v.xcd < xcd or (v.xcd == xcd and i < xindex) then
+			xindex = i
+			xcd = v.xcd
 		end
+		v.xcd = max(0, v.xcd - 1.5)
+	end
+	self:QD(pos, xindex)
+	pq[xindex].xcd = 1000
+end
+
+function clcret:QD(i, j)
+	dq[i].name = pq[j].name
+	dq[i].cdStart = pq[j].cdStart
+	dq[i].cdDuration = pq[j].cdDuration
+	dq[i].cd = pq[j].cd
+end
+
+function clcret:Enable()
+	if addonInit then
+		addonEnabled = true
+		self.frame:Show()
+	end
+end
+
+function clcret:Disable()
+	if addonInit then
+		addonEnabled = false
+		self.frame:Hide()
+	end
+end
+
+
+function clcret:OnEnable()
+	self:Enable()
+end
+
+function clcret:OnDisable() 
+	self:Disable()
+end
+
+
+function clcret:ToggleLock()
+	if self.locked then
+		self.locked = false
+		self.frame:EnableMouse(true)
+		self.frame.texture:Show()
+	else
+		self.locked = true
+		self.frame:EnableMouse(false)
+		self.frame.texture:Hide()
+	end
+end
+
+
+function clcret:CenterHorizontally()
+	db.x = (UIParent:GetWidth() - clcretFrame:GetWidth() * db.scale) / 2 / db.scale
+	self:UpdateFrameSettings()
+end
+
+
+function clcret:UpdateSkillButtonsLayout()
+	clcretFrame:SetWidth(db.layout.button1.size + 10)
+	clcretFrame:SetHeight(db.layout.button1.size + 10)
+	
+	for i = 1, 2 do
+		local button = buttons[i]
+		local opt = db.layout["button" .. i]
+		button:SetWidth(opt.size)
+		button:SetHeight(opt.size)
+		button:SetAlpha(opt.alpha)
+		button:ClearAllPoints()
+		button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
 		
-		-- check for ss and if found look for the proper one, gg naming 2 buffs with the exact same fucking name and no way to get buffs by ID
-		name, _, icon, _, _, duration, expirationTime, caster = UnitBuff(unit, buffSS)
-		if name and caster then
-			if caster == "player" then
-				if db.player.bars["ss"].enabled then
-					noss = false
-					if icon == buffIconSS then
-						self:UpdatePlayerBarData("ss", duration, expirationTime, UnitName(unit))
-					else
-						duration, expirationTime = self:GetSS(unit)
-						self:UpdatePlayerBarData("ss", duration, expirationTime, UnitName(unit))
-					end
-				end
-			elseif db.group.enabled then
-				-- another paladin's ss
-				if not (icon == buffIconSS) then
-					duration, expirationTime = self:GetSS(unit)
-				end
-				usedGroupBars = usedGroupBars + 1
-				self:UpdateGroupBarData(usedGroupBars, duration, expirationTime, UnitName(caster), UnitName(unit))
-			end
-		end
-	end
-	
-	if nobol and db.player.bars["bol"].enabled then self:UpdatePlayerBarData("bol", 0, 0, "") end
-	if noss and db.player.bars["ss"].enabled then self:UpdatePlayerBarData("ss", 0, 0, "") end
-	
-	-- disable not used groupBars
-	if db.group.enabled then
-		if usedGroupBarsLast > usedGroupBars then
-			for index = (usedGroupBars + 1), usedGroupBarsLast do
-				groupBars[index]:Hide()
-				groupBars[index].active = false
-			end	
-		end
-		usedGroupBarsLast = usedGroupBars
-	end
-	
-	-- disable not used folBars
-	if db.player.fol.enabled then
-		if usedFolBarsLast > usedFolBars then
-			for index = usedFolBars + 1, usedFolBarsLast do
-				folBars[index]:Hide()
-				folBars[index].active = false
-			end
-		end
-		usedFolBarsLast = usedFolBars
+		-- adjust border
+		button.topBorder:SetWidth(opt.size)
+		button.bottomBorder:SetWidth(opt.size)
+		button.leftBorder:SetHeight(opt.size)
+		button.rightBorder:SetHeight(opt.size)	
 	end
 end
 
 
-function clcbpt:GetSS(unit)	
-	local name, icon, duration, expirationTime
-	local i = 1
-	while true do
-		name, _, icon, _, _, duration, expirationTime = UnitBuff(unit, i)
-		if not name then break end
-		if name == buffSS and icon == buffIconSS then
-			return duration, expirationTime
-		end
-		i = i + 1
-	end
-	return 0, 0
-end
-
-
-function clcbpt:UpdatePlayerBarData(name, duration, expirationTime, targetName)
-	local bar = playerBars[name]
-	bar.oldExpirationTime = bar.expirationTime
-	bar.expirationTime = expirationTime
-	bar.duration = duration
+function clcret:InitUI()
+	local frame = CreateFrame("Frame", "clcretFrame", UIParent)
+	frame:SetWidth(db.layout.button1.size + 10)
+	frame:SetHeight(db.layout.button1.size + 10)
+	frame:SetPoint("BOTTOMLEFT", db.x, db.y)
 	
-	-- buff refresh
-	if bar.oldExpirationTime < bar.expirationTime then
-		bar.warn = true
-	end
-	
-	-- title of the bar
-	if bar.targetName ~= targetName then
-		bar.targetName = targetName
-		bar.label:SetText(targetName)
-	end
-end
-
-
-function clcbpt:UpdateFolBarData(index, duration, expirationTime, targetName)
-	-- create more if we don't have enough
-	if index > numFolBars then self:CreateFolBar() end
-	local bar = folBars[index]
-	bar.active = true
-	
-	-- timer
-	bar.expirationTime = expirationTime
-	bar.duration = duration
-	
-	-- label
-	if targetName then
-		bar.label:SetText(targetName)
-	end
-end
-
-
-function clcbpt:UpdateGroupBarData(index, duration, expirationTime, sourceName, targetName)
-	-- create more if we don't have enough
-	if index > numGroupBars then self:CreateGroupBar() end
-	local bar = groupBars[index]
-	bar.active = true
-	
-	-- timer
-	bar.expirationTime = expirationTime
-	bar.duration = duration
-	
-	-- label
-	if sourceName then
-		bar.label:SetText(sourceName .. "-" .. targetName)
-	end
-end
-
-
-function clcbpt:SetupPlayerBars()
-	-- jotp, bol, ss bars
-	self:CreatePlayerBar("jotp", "Interface\\Icons\\ability_paladin_judgementofthepure")
-	self:CreatePlayerBar("bol", "Interface\\Icons\\ability_paladin_beaconoflight")
-	self:CreatePlayerBar("ss", "Interface\\Icons\\ability_paladin_blessedmending")
-end
-
-
--- player bars update
-----------------------------------------------------------------------------
-function clcbpt:PlayerBarsUpdate()
-	orderPlayerBars = 1
-	-- jotp, bol, ss
-	for _, name in ipairs(layoutPlayerBars) do
-		self:PlayerBarUpdate(name)
-	end
-	orderPlayerBars = orderPlayerBars - 1
-end
-function clcbpt:PlayerBarUpdate(name)
-	if not db.player.bars[name].enabled then
-		playerBars[name]:Hide()
-		return
-	end
-
-	local bar = playerBars[name]
-	local opt = db.player
-	local optBar = db.player.bars[name]
-
-	local xtime = GetTime()
-	remaining = bar.expirationTime - xtime
-	if remaining <= 0 then
-		if bar.warn then
-			bar.warn = false
-			self:Warn(name)
-		end
-		bar:Hide()
-		return
-	end
-	
-	bar:Show()
-	
-	-- check for warn
-	if remaining <= db.warn.timer and bar.warn then
-		bar.warn = false -- only do it one time
-		self:Warn(name)
-	end
-	
-	local width, height
-	width = opt.width - opt.height
-	height = opt.height
-	
-	bar:SetWidth(width)
-	bar:SetHeight(height)
-	bar.icon:SetWidth(height)
-	bar.icon:SetHeight(height)
-	
-	local progress = width * remaining / bar.duration - width
-	local texture = bar.texture
-	texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
-	
-	local spark = bar.spark
-	spark:SetPoint("TOP", texture, "TOPRIGHT", 0, 7)
-	spark:SetPoint("BOTTOM", texture, "BOTTOMRIGHT", 0, -7)
-	
-	bar.labelTimer:SetText(floor(remaining + 0.5))
-	
-	if db.player.growUp then
-		bar:SetPoint("TOPLEFT", "clcbptAnchorsPlayer", "BOTTOMLEFT", opt.height, opt.height * orderPlayerBars) 
-	else
-		bar:SetPoint("TOPLEFT", "clcbptAnchorsPlayer", "TOPLEFT", opt.height, -opt.height * (orderPlayerBars - 1)) 
-	end
-	orderPlayerBars = orderPlayerBars + 1
-end
-----------------------------------------------------------------------------
-
-
--- fol bars update
-----------------------------------------------------------------------------
-function clcbpt:FolBarsUpdate()
-	for index, bar in ipairs(folBars) do
-		if not bar.active then return end
-		self:FolBarUpdate(index)
-	end
-end
-function clcbpt:FolBarUpdate(index)
-	if not db.player.fol.enabled then
-		folBars[index]:Hide()
-		return
-	end
-
-
-	local bar = folBars[index]
-	local opt = db.player
-	
-	local xtime = GetTime()
-	remaining = bar.expirationTime - xtime
-	if remaining <= 0 then
-		bar:Hide()
-		return
-	end
-	
-	bar:Show()
-	
-	local width, height
-	width = opt.width - opt.height
-	height = opt.height
-	
-	bar:SetWidth(width)
-	bar:SetHeight(height)
-	bar.icon:SetWidth(height)
-	bar.icon:SetHeight(height)
-	
-	local progress = width * remaining / bar.duration - width
-	local texture = bar.texture
-	texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
-	
-	local spark = bar.spark
-	spark:SetPoint("TOP", texture, "TOPRIGHT", 0, 7)
-	spark:SetPoint("BOTTOM", texture, "BOTTOMRIGHT", 0, -7)
-	
-	bar.labelTimer:SetText(floor(remaining + 0.5))
-	
-	if db.player.growUp then
-		bar:SetPoint("TOPLEFT", "clcbptAnchorsPlayer", "BOTTOMLEFT", opt.height, opt.height * (index + orderPlayerBars)) 
-	else
-		bar:SetPoint("TOPLEFT", "clcbptAnchorsPlayer", "TOPLEFT", opt.height, - opt.height * (index + orderPlayerBars - 1)) 
-	end
-end
-----------------------------------------------------------------------------
-
-
--- group bars update
-----------------------------------------------------------------------------
-function clcbpt:GroupBarsUpdate()
-	for index, bar in ipairs(groupBars) do
-		if not bar.active then return end
-		self:GroupBarUpdate(index)
-	end
-end
-function clcbpt:GroupBarUpdate(index)
-	if not db.group.enabled then
-		groupBars[index]:Hide()
-		return
-	end
-
-
-	local bar = groupBars[index]
-	local opt = db.group
-	
-	local xtime = GetTime()
-	remaining = bar.expirationTime - xtime
-	if remaining <= 0 then
-		bar:Hide()
-		return
-	end
-	
-	bar:Show()
-	
-	local width, height
-	width = opt.width - opt.height
-	height = opt.height
-	
-	bar:SetWidth(width)
-	bar:SetHeight(height)
-	bar.icon:SetWidth(height)
-	bar.icon:SetHeight(height)
-	
-	local progress = width * remaining / bar.duration - width
-	local texture = bar.texture
-	texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
-	
-	local spark = bar.spark
-	spark:SetPoint("TOP", texture, "TOPRIGHT", 0, 7)
-	spark:SetPoint("BOTTOM", texture, "BOTTOMRIGHT", 0, -7)
-	
-	bar.labelTimer:SetText(floor(remaining + 0.5))
-	
-	if db.group.growUp then
-		bar:SetPoint("TOPLEFT", "clcbptAnchorsGroup", "BOTTOMLEFT", opt.height, opt.height * index) 
-	else
-		bar:SetPoint("TOPLEFT", "clcbptAnchorsGroup", "TOPLEFT", opt.height, - opt.height * (index - 1)) 
-	end
-end
-----------------------------------------------------------------------------
-
--- update the look of the player bars
-----------------------------------------------------------------------------
-function clcbpt:PlayerBarsUpdateLayout()
-	for name, _ in pairs(playerBars) do
-		self:PlayerBarUpdateLayout(name)
-	end
-	
-	-- adjust width and height for anchor
-	clcbptAnchorsPlayer:SetWidth(db.player.width)
-	clcbptAnchorsPlayer:SetHeight(db.player.height)
-end
-function clcbpt:PlayerBarUpdateLayout(name)
-	local bar = playerBars[name]
-	local opt = db.player
-	local optBar = db.player.bars[name]
-	
-	-- color
-	bar.texture:SetVertexColor(unpack(optBar.color))
-	-- texture
-	bar.texture:SetTexture(Media:Fetch('statusbar', optBar.texture))
-	-- font size and family
-	local _, _, fontFlags = bar.label:GetFont()
-	local fontName = Media:Fetch("font", opt.fontName)
-	bar.label:SetFont(fontName, opt.font, fontFlags)
-	bar.labelTimer:SetFont(fontName, opt.font, fontFlags)
-	-- normal update
-	-- self:PlayerBarUpdate(name)
-end
-----------------------------------------------------------------------------
-
--- update the look of the fol bars
-----------------------------------------------------------------------------
-function clcbpt:FolBarsUpdateLayout()
-	for index in ipairs(folBars) do
-		self:FolBarUpdateLayout(index)
-	end
-end
-function clcbpt:FolBarUpdateLayout(index)
-	local bar = folBars[index]
-	-- color
-	bar.texture:SetVertexColor(unpack(db.player.fol.color))
-	-- texture
-	bar.texture:SetTexture(Media:Fetch('statusbar', db.player.fol.texture))
-	-- font size and family
-	local _, _, fontFlags = bar.label:GetFont()
-	local fontName = Media:Fetch("font", db.player.fontName)
-	bar.label:SetFont(fontName, db.player.font, fontFlags)
-	bar.labelTimer:SetFont(fontName, db.player.font, fontFlags)
-	-- normal update
-	-- self:FolBarUpdate(index)
-end
-----------------------------------------------------------------------------
-
--- update the look of the group bars
-----------------------------------------------------------------------------
-function clcbpt:GroupBarsUpdateLayout()
-	for index in ipairs(groupBars) do
-		self:GroupBarUpdateLayout(index)
-	end
-	
-	-- adjust width and height for anchor
-	clcbptAnchorsGroup:SetWidth(db.group.width)
-	clcbptAnchorsGroup:SetHeight(db.group.height)
-end
-function clcbpt:GroupBarUpdateLayout(index)
-	local bar = groupBars[index]
-	local opt = db.group
-	-- color
-	bar.texture:SetVertexColor(unpack(db.player.bars["ss"].color))
-	-- texture
-	bar.texture:SetTexture(Media:Fetch('statusbar', opt.texture))
-	-- font size and family
-	local _, _, fontFlags = bar.label:GetFont()
-	local fontName = Media:Fetch("font", opt.fontName)
-	bar.label:SetFont(fontName, opt.font, fontFlags)
-	bar.labelTimer:SetFont(fontName, opt.font, fontFlags)
-	-- normal update
-	-- self:GroupBarUpdate(index)
-end
-----------------------------------------------------------------------------
-
-function clcbpt:CreateBarFrame(name)
-	local frame = CreateFrame("Frame", "clcbpt"..name, UIParent)
-	frame.texture = frame:CreateTexture(nil, "ARTWORK")
-	
-	frame.bgtexture = frame:CreateTexture(nil, "BACKGROUND")
-	frame.bgtexture:SetAllPoints()
-	frame.bgtexture:SetVertexColor(0, 0, 0, 0.5)
-	frame.bgtexture:SetTexture(bgtex)
-	
-	local spark = frame:CreateTexture(nil, "OVERLAY")
-	spark:SetTexture([[Interface\CastingBar\UI-CastingBar-Spark]])
-	spark:SetWidth(10)
-	spark:SetHeight(10)
-	spark:SetBlendMode("ADD")
-	spark:SetTexCoord(0, 1, 0, 1)
-	frame.spark = spark
-	
-	frame.label = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-	frame.label:ClearAllPoints()
-	frame.label:SetPoint("LEFT", frame, "LEFT", 3, 0)
-	
-	frame.labelTimer = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-	frame.labelTimer:ClearAllPoints()
-	frame.labelTimer:SetPoint("RIGHT", frame, "RIGHT", -3, 0)
-	
-	frame.icon = frame:CreateTexture(nil, "OVERLAY")
-	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
-	return frame
-end
-
-
-function clcbpt:CreatePlayerBar(name, icon)
-	playerBars[name] = self:CreateBarFrame(name)
-	local bar = playerBars[name]
-	
-	-- options
-	bar.optIcon = icon
-	bar.duration = 0
-	bar.expirationTime = 0
-	bar.oldExpirationTime = 0
-	bar.warn = false
-	bar.targetName = ""
-	
-	local texture = bar.texture
-	texture:SetAllPoints()
-	
-	local iconTex = bar.icon
-	iconTex:SetTexture(icon)
-	iconTex:SetPoint("RIGHT", bar, "LEFT", 0, 0)
-	iconTex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	
-	bar:Hide()
-end
-
-
-function clcbpt:CreateFolBar()
-	numFolBars = numFolBars + 1
-	folBars[numFolBars] = self:CreateBarFrame("Fol" .. numFolBars)
-	local bar = folBars[numFolBars]
-	
-	bar.optIcon = "Interface\\Icons\\spell_holy_flashheal"
-	bar.duration = 0
-	bar.expirationTime = 0
-	bar.active = false
-	
-	local texture = bar.texture
-	texture:SetAllPoints()
-	
-	local iconTex = bar.icon
-	iconTex:SetTexture(bar.optIcon)
-	iconTex:SetPoint("RIGHT", bar, "LEFT", 0, 0)
-	iconTex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	
-	self:FolBarUpdateLayout(numFolBars)
-	
-	bar:Hide()
-end
-
-
-function clcbpt:CreateGroupBar()
-	numGroupBars = numGroupBars + 1
-	groupBars[numGroupBars] = self:CreateBarFrame("Group" .. numGroupBars)
-	local bar = groupBars[numGroupBars]
-	
-	bar.optIcon = "Interface\\Icons\\ability_paladin_blessedmending"
-	bar.duration = 0
-	bar.expirationTime = 0
-	bar.active = false
-	
-	local texture = bar.texture
-	texture:SetAllPoints()
-	
-	local iconTex = bar.icon
-	iconTex:SetTexture(bar.optIcon)
-	iconTex:SetPoint("RIGHT", bar, "LEFT", 0, 0)
-	iconTex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	
-	self:GroupBarUpdateLayout(numGroupBars)
-	
-	bar:Hide()
-end
-
-
-function clcbpt:AnchorsStopMovingOrSizing()
-	db.player.x = clcbptAnchorsPlayer:GetLeft()
-	db.player.y = clcbptAnchorsPlayer:GetBottom()
-	db.group.x 	= clcbptAnchorsGroup:GetLeft()
-	db.group.y 	= clcbptAnchorsGroup:GetBottom()
-end
-
--- create an anchor frame
-function clcbpt:CreateAnchor(name, width, height, x, y)
-	local frame = CreateFrame("Frame", "clcbptAnchors" .. name, UIParent)
-	frame:Hide()
-
-	frame:SetWidth(width)
-	frame:SetHeight(height)
-	frame:SetPoint("BOTTOMLEFT", UIParent, x, y)
-	
-	local texture = frame:CreateTexture(nil, "BACKGROUND")
-	texture:SetAllPoints()
-	texture:SetTexture(bgtex)
-	texture:SetVertexColor(0, 0, 0, 1)
-
-	frame:EnableMouse(true)
-	frame:RegisterForDrag("LeftButton")
+	frame:EnableMouse(false)
 	frame:SetMovable(true)
+	frame:RegisterForDrag("LeftButton")
 	frame:SetScript("OnDragStart", function() this:StartMoving() end)
 	frame:SetScript("OnDragStop", function()
 		this:StopMovingOrSizing()
-		clcbpt:AnchorsStopMovingOrSizing()
+		db.x = clcretFrame:GetLeft()
+		db.y = clcretFrame:GetBottom()
 	end)
+	
+	local texture = frame:CreateTexture(nil, "BACKGROUND")
+	texture:SetAllPoints()
+	texture:SetTexture(BGTEX)
+	texture:SetVertexColor(0, 0, 0, 1)
+	texture:Hide()
+	frame.texture = texture
 
-	local cheader = frame:CreateFontString(nil, "OVERLAY")
-	cheader:ClearAllPoints()
-	cheader:SetWidth(150)
-	cheader:SetHeight(30)
-	cheader:SetPoint("BOTTOM", frame, "TOP", 10, 0)
-	cheader:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	cheader:SetJustifyH("LEFT")
-	cheader:SetText(name)
-	cheader:SetShadowOffset(.8, -.8)
-	cheader:SetShadowColor(0, 0, 0, 1)
-
-	return frame
+	self.frame = frame
+	
+	-- queue
+	local opt
+	for i = 1, 2 do
+		opt = db.layout["button" .. i]
+		buttons[i] = self:CreateButton("B2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+		buttons[i]:SetAlpha(opt.alpha)
+		buttons[i]:Show()
+	end
+	
+	self:InitAuraButtons()
+	self.auraButtons = auraButtons
+	
+	frame:SetScale(db.scale)
+	
+	addonInit = true
+	self:Disable()
+	self.frame:SetScript("OnUpdate", OnUpdate)
 end
 
-
-function clcbpt:ToggleAnchors()
-	if showAnchors then
-		showAnchors = false
-		clcbptAnchorsPlayer:Hide()
-		clcbptAnchorsGroup:Hide()
-	else
-		showAnchors = true
-		clcbptAnchorsPlayer:Show()
-		clcbptAnchorsGroup:Show()
+function clcret:InitAuraButtons()
+	local data, layout
+	for i = 1, 10 do
+		data = db.auras[i].data
+		layout = db.auras[i].layout
+		auraButtons[i] = self:CreateButton("aura"..i, layout.size, layout.point, clcretFrame, layout.pointParent, layout.x, layout.y, true)
+		auraButtons[i].start = 0
+		auraButtons[i].duration = 0
+		auraButtons[i].expirationTime = 0
+		auraButtons[i].hasTexture = false
 	end
+end
+
+function clcret:UpdateAuraButtonLayout(index)
+	local button = auraButtons[index]
+	local opt = db.auras[index].layout
+	button:SetWidth(opt.size)
+	button:SetHeight(opt.size)
+	button:ClearAllPoints()
+	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	
+	-- adjust border
+	button.topBorder:SetWidth(opt.size)
+	button.bottomBorder:SetWidth(opt.size)
+	button.leftBorder:SetHeight(opt.size)
+	button.rightBorder:SetHeight(opt.size)	
+end
+
+function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, hasStack)
+	local button = CreateFrame("Frame", "clcret"..name, parent)
+	button:SetWidth(size)
+	button:SetHeight(size)
+	button:SetPoint(point, parent, pointParent, offsetx, offsety)
+	
+	local texture = button:CreateTexture(nil,"BACKGROUND")
+	texture:SetTexture(nil)
+	texture:SetAllPoints(button)
+	texture:SetTexture()
+	texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	button.texture = texture
+	
+	-- border
+	local line
+	-- top BORDER_WIDTH
+	line = button:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetVertexColor(0, 0, 0, 1)
+	line:SetWidth(size)
+	line:SetHeight(BORDER_WIDTH)
+	line:SetPoint("TOP", 0, 0)
+	button.topBorder = line
+	
+	-- bottom line
+	line = button:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetVertexColor(0, 0, 0, 1)
+	line:SetWidth(size)
+	line:SetHeight(BORDER_WIDTH)
+	line:SetPoint("BOTTOM", 0, 0)
+	button.bottomBorder = line
+	
+	-- left line
+	line = button:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetVertexColor(0, 0, 0, 1)
+	line:SetWidth(BORDER_WIDTH)
+	line:SetHeight(size)
+	line:SetPoint("LEFT", 0, 0)
+	button.leftBorder = line
+	
+	-- right line
+	line = button:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetVertexColor(0, 0, 0, 1)
+	line:SetWidth(BORDER_WIDTH)
+	line:SetHeight(size)
+	line:SetPoint("RIGHT", 0, 0)
+	button.rightBorder = line
+	
+	local cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
+	cooldown:SetAllPoints(button)
+	cooldown:Hide()
+	button.cooldown = cooldown
+	
+	if hasStack then
+		local stack = cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+		local fontFace, _, fontFlags = stack:GetFont()
+		stack:SetFont(fontFace, 15, fontFlags)
+		stack:SetPoint("BOTTOMRIGHT", 3, -3)
+		stack:Hide()
+		button.stack = stack
+	end
+	
+	button:Hide()	
+	return button
 end
