@@ -8,10 +8,13 @@ local MAX_AURAS = 10
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
 local BORDER_WIDTH = 2
 
+-- cleanse spell name, used for gcd
+local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> 
+
+-- various spell names, used for default settings
 local taowSpellName = GetSpellInfo(59578) 				-- the art of war
 local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
 local dpSpellName = GetSpellInfo(54428)					-- divine plea
-local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> used for gcd
 local sovName, sovTextureName							-- sov
 if UnitFactionGroup("player") == "Alliance" then
 	sovName = GetSpellInfo(31803)						-- holy vengeance
@@ -19,23 +22,31 @@ else
 	sovName = GetSpellInfo(53742)						-- blood corruption
 end
 
-local pq	-- queue generated from fcfs
-local dq = {	-- display queue
+-- priority queue generated from fcfs
+local pq
+-- number of spells in the queue
+local numSpells
+-- display queue
+local dq = {	
 	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
 	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
 }
 
+-- main and secondary skill buttons
 local buttons = {}
+-- configurable buttons
 local auraButtons = {}
 local auraIndex
-local addonEnabled = false
 
-local addonInit = false
-clcret.locked = true
-local numSpells
+-- addon status
+local addonEnabled = false	-- enabled
+local addonInit = false		-- init completed
+clcret.locked = true		-- main frame locked
 
+-- shortcut for db options
 local db
 
+-- the spells used in fcfs
 clcret.spells = {
 	how		= { id = 48806 },
 	cs 		= { id = 35395 },
@@ -171,7 +182,7 @@ clcret.defaults = {
 		}
 	}
 }
-
+-- rest of the auras for default options
 for i = 5, MAX_AURAS do 
 	clcret.defaults.char.auras[i] = {
 		enabled = false,
@@ -544,7 +555,6 @@ function clcret:CheckRange()
 	end
 end
 
-
 local lastgcd = 0
 function clcret:CheckQueue()
 	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
@@ -560,7 +570,10 @@ function clcret:CheckQueue()
 	-- update cooldowns
 	for i=1, numSpells do
 		v = pq[i]
+		
 		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
+		if v.cdStart == nil then return end -- try to solve respec issues
+		
 		v.cd = max(0, v.cdStart + v.cdDuration - ctime)
 		
 		-- how check
