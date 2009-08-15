@@ -349,7 +349,9 @@ function clcret:UpdateShowMethod()
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
-	self:CancelAllTimers()
+	self:UnregisterEvent("UNIT_FACTION")
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+	-- self:CancelAllTimers()
 
 	if db.show == "combat" then
 		if addonEnabled then
@@ -364,8 +366,10 @@ function clcret:UpdateShowMethod()
 		
 	elseif db.show == "valid" then
 		self:PLAYER_TARGET_CHANGED()
-		self:ScheduleRepeatingTimer("PLAYER_TARGET_CHANGED", 1) -- small hack till I find out all the events that affect the target
+		-- self:ScheduleRepeatingTimer("PLAYER_TARGET_CHANGED", 5) -- small hack till I find out all the events that affect the target
 		self:RegisterEvent("PLAYER_TARGET_CHANGED")
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED")
+		self:RegisterEvent("UNIT_FACTION")
 	else
 		if addonEnabled then
 			self.frame:Show()
@@ -390,6 +394,12 @@ function clcret:PLAYER_TARGET_CHANGED()
 		self.frame:Show()
 	else
 		self.frame:Hide()
+	end
+end
+-- unit faction changed - test if it gets fired everytime a target switches friend -> enemy
+function clcret:UNIT_FACTION(event, unit)
+	if unit == "target" then
+		self:PLAYER_TARGET_CHANGED()
 	end
 end
 
