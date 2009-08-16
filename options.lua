@@ -20,7 +20,9 @@ function clcret:InitOptions()
 	local execList = {
 		AuraButtonExecNone = "None",
 		AuraButtonExecSkillVisibleAlways = "Skill always visible",
-		AuraButtonExecSkillVisibleNoCooldown = "Skill invisible on cooldown",
+		AuraButtonExecSkillVisibleNoCooldown = "Skill visible when available",
+		AuraButtonExecItemVisibleAlways = "OnUse item always visible",
+		AuraButtonExecItemVisibleNoCooldown = "OnUse item visible when available",
 		AuraButtonExecGenericBuff = "Generic buff",
 		AuraButtonExecGenericDebuff = "Generic debuff",
 	}
@@ -345,6 +347,7 @@ function clcret:InitOptions()
 					name = "Spell name/id or buff to track",
 					get = function(info) return db.auras[i].data.spell end,
 					set = function(info, val)
+						-- skill
 						if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") then
 							local name = GetSpellInfo(val)
 							if name then
@@ -353,6 +356,16 @@ function clcret:InitOptions()
 								db.auras[i].data.spell = ""
 								db.auras[i].enabled = false
 								bprint("Not a valid spell name or id !")
+							end
+						-- item
+						elseif (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
+							local name = GetItemInfo(val)
+							if name then
+								db.auras[i].data.spell = name
+							else
+								db.auras[i].data.spell = ""
+								db.auras[i].enabled = false
+								bprint("Not a valid item name or id !")
 							end
 						else
 							db.auras[i].data.spell = val
@@ -367,11 +380,19 @@ function clcret:InitOptions()
 					get = function(info) return db.auras[i].data.exec end,
 					set = function(info, val)
 						db.auras[i].data.exec = val
+						-- skill
 						if (val == "AuraButtonExecSkillVisibleAlways") or (val == "AuraButtonExecSkillVisibleNoCooldown") then
 							if not GetSpellInfo(db.auras[i].data.spell) then
 								db.auras[i].data.spell = ""
 								db.auras[i].enabled = false
 								bprint("Not a valid spell name or id !")
+							end
+						-- item
+						elseif (val == "AuraButtonExecItemVisibleAlways") or (val == "AuraButtonExecItemVisibleNoCooldown") then
+							if not GetItemInfo(db.auras[i].data.spell) then
+								db.auras[i].data.spell = ""
+								db.auras[i].enabled = false
+								bprint("Not a valid item name or id !")
 							end
 						end
 					end,

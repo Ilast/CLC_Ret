@@ -464,7 +464,7 @@ function clcret:AuraButtonExecNone(index)
 	auraButtons[auraIndex]:Show()
 end
 
--- shows a skill use always with a visible cooldown when needed
+-- shows a skill always with a visible cooldown when needed
 function clcret:AuraButtonExecSkillVisibleAlways()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -518,7 +518,80 @@ function clcret:AuraButtonExecSkillVisibleNoCooldown()
 		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
 	end
 	
-	if duration > 1.6 then
+	if duration > 1.5 then
+		button:Hide()
+	else
+		button:Show()
+	end
+end
+
+-- shows an equiped usable item always with a visible cooldown when needed
+function clcret:AuraButtonExecItemVisibleAlways()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- hide the item if is not equiped
+	if not IsEquippedItem(data.spell) then
+		button:Hide()
+		return
+	end
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetItemIcon(data.spell))
+	end
+	
+	button:Show()
+	
+	if IsUsableItem(data.spell) then
+		button.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
+	
+	local start, duration = GetItemCooldown(data.spell)
+	if start ~= button.start then 
+		button.start = start
+		button.duration = duration
+		local cd = start + duration - GetTime()
+		if cd > 0 then
+				button.cooldown:SetCooldown(start, duration)
+				button.cooldown:Show()
+		else
+				button.cooldown:Hide()
+		end
+	end
+end
+
+-- shows shows an equiped usable item only when out of cooldown
+function clcret:AuraButtonExecItemVisibleNoCooldown()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- hide the item if is not equiped
+	if not IsEquippedItem(data.spell) then
+		button:Hide()
+		return
+	end
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetItemIcon(data.spell))
+	end
+
+	local start, duration = GetItemCooldown(data.spell)
+	
+	if IsUsableItem(data.spell) then
+		button.texture:SetVertexColor(1, 1, 1, 1)
+	else
+		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
+	end
+	
+	if duration > 1.5 then
 		button:Hide()
 	else
 		button:Show()
