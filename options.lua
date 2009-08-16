@@ -34,14 +34,14 @@ function clcret:InitOptions()
 		
 			-- layout
 			layout = {
-				order = 10,
+				order = 15,
 				name = "Layout",
 				type = "group",
 				args = {},
 			},
 			
 			auras = {
-				order = 5,
+				order = 7,
 				name = "Aura Buttons",
 				type = "group",
 				args = {},
@@ -58,9 +58,18 @@ function clcret:InitOptions()
 				end,
 			},
 			
+			-- full disable toggle
+			fullDisable = {
+				order = 2,
+				type = "toggle",
+				name = "Addon disabled",
+				get = function(info) return db.fullDisable end,
+				set = function(info, val) clcret:FullDisableToggle() end,
+			},
+			
 			-- appearance
 			appearance = {
-				order = 2,
+				order = 3,
 				name = "Appearance",
 				type = "group",
 				args = {
@@ -164,7 +173,7 @@ function clcret:InitOptions()
 			
 			-- fcfs edit
 			fcfs = {
-				order = 3,
+				order = 5,
 				name = "FCFS",
 				type = "group",
 				args = {
@@ -173,7 +182,7 @@ function clcret:InitOptions()
 			
 			-- behaviour
 			behaviour = {
-				order = 4,
+				order = 10,
 				name = "Behaviour",
 				type = "group",
 				args = {

@@ -38,9 +38,9 @@ local auraButtons = {}
 local auraIndex
 
 -- addon status
-local addonEnabled = false	-- enabled
-local addonInit = false		-- init completed
-clcret.locked = true		-- main frame locked
+local addonEnabled = false			-- enabled
+local addonInit = false				-- init completed
+clcret.locked = true				-- main frame locked
 
 -- shortcut for db options
 local db
@@ -70,6 +70,7 @@ clcret.defaults = {
 		show = "always",
 		borderSize = 2,
 		borderColor = {0, 0, 0, 1},
+		fullDisable = false,
 		
 		-- fcfs
 		fcfs = {
@@ -269,9 +270,11 @@ function clcret:Init()
 	self:InitUI()
 	self:PLAYER_TALENT_UPDATE()
 	
-	self:RegisterEvent("PLAYER_TALENT_UPDATE")
-	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
-	self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
+	if not db.fullDisable then
+		self:RegisterEvent("PLAYER_TALENT_UPDATE")
+		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
+		self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
+	end
 end
 -- get the spell names from ids
 function clcret:InitSpells()
@@ -353,7 +356,6 @@ function clcret:UpdateShowMethod()
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	self:UnregisterEvent("UNIT_FACTION")
-	-- self:CancelAllTimers()
 
 	if db.show == "combat" then
 		if addonEnabled then
@@ -408,6 +410,11 @@ end
 -- disable/enable according to spec
 -- use the same function for vehicle check
 function clcret:PLAYER_TALENT_UPDATE()
+	if db.fullDisable then
+		self:Disable()
+		return
+	end
+
 	-- vehicle check
 	if UnitUsingVehicle("player") then
 		self:Disable()
@@ -1007,6 +1014,44 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	button:Hide()	
 	return button
 end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- FULL DISABLE
+-- TODO: Unregister/Register all events here ?
+-- ---------------------------------------------------------------------------------------------------------------------
+function clcret:FullDisableToggle()
+	if db.fullDisable then
+		-- enabled
+		db.fullDisable = false
+		
+		-- register events
+		self:RegisterEvent("PLAYER_TALENT_UPDATE")
+		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
+		self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
+		
+		-- do the normal load rutine
+		self:PLAYER_TALENT_UPDATE()
+	else
+		-- disabled
+		db.fullDisable = true
+		
+		-- unregister events
+		self:UnregisterEvent("PLAYER_TALENT_UPDATE")
+		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
+		self:UnregisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
+		
+		self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+		self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+		self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+		self:UnregisterEvent("UNIT_FACTION")
+		
+		-- disable
+		self:Disable()
+	end
+end
+
 -- ---------------------------------------------------------------------------------------------------------------------
 
 
