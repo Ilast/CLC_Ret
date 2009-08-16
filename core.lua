@@ -850,18 +850,18 @@ function clcret:UpdateBorder(button, size, color)
 	color = color or db.borderColor
 
 	button.topBorder:SetWidth(bw)
-	button.topBorder:SetHeight(db.borderSize)
+	button.topBorder:SetHeight(size)
 	button.topBorder:SetVertexColor(unpack(color))
 	
 	button.bottomBorder:SetWidth(bw)
-	button.bottomBorder:SetHeight(db.borderSize)
+	button.bottomBorder:SetHeight(size)
 	button.bottomBorder:SetVertexColor(unpack(color))
 	
-	button.leftBorder:SetWidth(db.borderSize)
+	button.leftBorder:SetWidth(size)
 	button.leftBorder:SetHeight(bw)
 	button.leftBorder:SetVertexColor(unpack(color))
 	
-	button.rightBorder:SetWidth(db.borderSize)
+	button.rightBorder:SetWidth(size)
 	button.rightBorder:SetHeight(bw)
 	button.rightBorder:SetVertexColor(unpack(color))
 end
