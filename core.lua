@@ -6,7 +6,6 @@ clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-
 
 local MAX_AURAS = 10
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
-local BORDER_WIDTH = 2
 
 -- cleanse spell name, used for gcd
 local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> 
@@ -69,6 +68,8 @@ clcret.defaults = {
 		scale = 1,
 		alpha = 1,
 		show = "always",
+		borderSize = 2,
+		borderColor = {0, 0, 0, 1},
 		
 		-- fcfs
 		fcfs = {
@@ -820,12 +821,7 @@ function clcret:UpdateSkillButtonsLayout()
 		button:SetAlpha(opt.alpha)
 		button:ClearAllPoints()
 		button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
-		
-		-- adjust border
-		button.topBorder:SetWidth(opt.size)
-		button.bottomBorder:SetWidth(opt.size)
-		button.leftBorder:SetHeight(opt.size)
-		button.rightBorder:SetHeight(opt.size)	
+		self:UpdateBorder(button)
 	end
 end
 
@@ -837,12 +833,7 @@ function clcret:UpdateAuraButtonLayout(index)
 	button:SetHeight(opt.size)
 	button:ClearAllPoints()
 	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
-	
-	-- adjust border
-	button.topBorder:SetWidth(opt.size)
-	button.bottomBorder:SetWidth(opt.size)
-	button.leftBorder:SetHeight(opt.size)
-	button.rightBorder:SetHeight(opt.size)	
+	self:UpdateBorder(button)
 end
 
 -- update scale, alpha, position for main frame
@@ -850,6 +841,41 @@ function clcret:UpdateFrameSettings()
 	self.frame:SetScale(db.scale)
 	self.frame:SetAlpha(db.alpha)
 	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
+end
+
+-- update border for a single button
+function clcret:UpdateBorder(button, size, color)
+	local bw = button:GetWidth()
+	size = size or db.borderSize
+	color = color or db.borderColor
+
+	button.topBorder:SetWidth(bw)
+	button.topBorder:SetHeight(db.borderSize)
+	button.topBorder:SetVertexColor(unpack(color))
+	
+	button.bottomBorder:SetWidth(bw)
+	button.bottomBorder:SetHeight(db.borderSize)
+	button.bottomBorder:SetVertexColor(unpack(color))
+	
+	button.leftBorder:SetWidth(db.borderSize)
+	button.leftBorder:SetHeight(bw)
+	button.leftBorder:SetVertexColor(unpack(color))
+	
+	button.rightBorder:SetWidth(db.borderSize)
+	button.rightBorder:SetHeight(bw)
+	button.rightBorder:SetVertexColor(unpack(color))
+end
+
+
+-- update borders size and colors
+function clcret:UpdateBorders()
+	for i=1, 2 do
+		self:UpdateBorder(buttons[i])
+	end
+	
+	for i=1, MAX_AURAS do
+		self:UpdateBorder(auraButtons[i])
+	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
@@ -884,7 +910,7 @@ function clcret:InitUI()
 
 	self.frame = frame
 	
-	-- queue
+	-- init the buttons
 	local opt
 	for i = 1, 2 do
 		opt = db.layout["button" .. i]
@@ -892,9 +918,12 @@ function clcret:InitUI()
 		buttons[i]:SetAlpha(opt.alpha)
 		buttons[i]:Show()
 	end
-	
 	self:InitAuraButtons()
 	
+	-- update the borders
+	self:UpdateBorders()
+	
+	-- set scale
 	frame:SetScale(db.scale)
 	
 	addonInit = true
@@ -929,31 +958,27 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 	button.texture = texture
 	
-	-- border
+	-- create border
+	-- not all dimensions are shown, some are updated in the next step
+	
 	local line
-	-- top BORDER_WIDTH
+	-- top db.borderSize
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetVertexColor(0, 0, 0, 1)
 	line:SetWidth(size)
-	line:SetHeight(BORDER_WIDTH)
 	line:SetPoint("TOP", 0, 0)
 	button.topBorder = line
 	
 	-- bottom line
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetVertexColor(0, 0, 0, 1)
 	line:SetWidth(size)
-	line:SetHeight(BORDER_WIDTH)
 	line:SetPoint("BOTTOM", 0, 0)
 	button.bottomBorder = line
 	
 	-- left line
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetVertexColor(0, 0, 0, 1)
-	line:SetWidth(BORDER_WIDTH)
 	line:SetHeight(size)
 	line:SetPoint("LEFT", 0, 0)
 	button.leftBorder = line
@@ -961,8 +986,6 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	-- right line
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetVertexColor(0, 0, 0, 1)
-	line:SetWidth(BORDER_WIDTH)
 	line:SetHeight(size)
 	line:SetPoint("RIGHT", 0, 0)
 	button.rightBorder = line
