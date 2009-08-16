@@ -270,6 +270,8 @@ function clcret:Init()
 	self:UpdateShowMethod()
 	
 	self:RegisterEvent("PLAYER_TALENT_UPDATE")
+	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
+	self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
 end
 -- get the spell names from ids
 function clcret:InitSpells()
@@ -349,8 +351,8 @@ function clcret:UpdateShowMethod()
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
-	self:UnregisterEvent("UNIT_FACTION")
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+	self:UnregisterEvent("UNIT_FACTION")
 	-- self:CancelAllTimers()
 
 	if db.show == "combat" then
@@ -404,13 +406,27 @@ function clcret:UNIT_FACTION(event, unit)
 end
 
 -- disable/enable according to spec
+-- use the same function for vehicle check
 function clcret:PLAYER_TALENT_UPDATE()
+	-- vehicle check
+	if UnitUsingVehicle("player") then
+		self:Disable()
+		return
+	end
+	
 	-- check cs talent
 	local _, _, _, _, rank = GetTalentInfo(3, 23)
 	if rank == 1 then
 		self:Enable()
 	else
 		self:Disable()
+	end
+end
+
+-- check if we need to update vehicle status
+function clcret:VEHICLE_CHECK(event, unit)
+	if unit == "player" then
+		self:PLAYER_TALENT_UPDATE()
 	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
