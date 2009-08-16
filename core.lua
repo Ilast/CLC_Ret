@@ -267,7 +267,6 @@ function clcret:Init()
 	self:UpdateFCFS()
 	self:InitUI()
 	self:PLAYER_TALENT_UPDATE()
-	self:UpdateShowMethod()
 	
 	self:RegisterEvent("PLAYER_TALENT_UPDATE")
 	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
@@ -418,6 +417,7 @@ function clcret:PLAYER_TALENT_UPDATE()
 	local _, _, _, _, rank = GetTalentInfo(3, 23)
 	if rank == 1 then
 		self:Enable()
+		self:UpdateShowMethod()
 	else
 		self:Disable()
 	end
