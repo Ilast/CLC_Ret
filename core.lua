@@ -107,6 +107,7 @@ clcret.defaults = {
 		manaDP = 0,
 		manaDPPerc = 0,
 		loadDelay = 10,
+		gcdDpSs = 0,
 		
 		-- layout of the 2 skill button
 		layout = {
@@ -789,10 +790,15 @@ function clcret:CheckQueue()
 			if (db.manaCons > 0 and mana < db.manaCons) or (db.manaConsPerc and manaPerc < db.manaConsPerc) then v.cd = 100 end
 		-- divine plea max mana
 		elseif v.alias == "dp" then
-			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then v.cd = 100 end
+			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then
+				v.cd = 100
+			else
+				v.cd = v.cd + db.gcdDpSs
+			end
+		elseif v.alias == "ss"then
+			v.cd = v.cd + db.gcdDpSs
 		end
 		
-		-- v.xcd = v.cd
 		v.xcd = v.cd - gcd
 	end
 
@@ -813,7 +819,13 @@ function clcret:GetBest(pos)
 			xindex = i
 			xcd = v.xcd
 		end
-		v.xcd = max(0, v.xcd - 1.5)
+		if db.gcdDpSs > 0 then
+			if not (v.alias == "dp" or v.alias == "ss") then
+				v.xcd = max(0, v.xcd - 1.5)
+			end
+		else
+			v.xcd = max(0, v.xcd - 1.5)
+		end
 	end
 	self:QD(pos, xindex)
 	pq[xindex].xcd = 1000

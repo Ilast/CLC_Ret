@@ -392,6 +392,16 @@ function clcret:InitOptions()
 						get = function(info) return db.loadDelay end,
 						set = function(info, val) db.loadDelay = val end,
 					},
+					gcdDpSs = {
+						order = 30,
+						type = "range",
+						min = 0,
+						max = 2,
+						step = 0.1,
+						name = "Extra delay for DP and SS",
+						get = function(info) return db.gcdDpSs end,
+						set = function(info, val) db.gcdDpSs = val end,
+					},
 				},
 			}
 		}
