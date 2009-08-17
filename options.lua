@@ -31,6 +31,21 @@ function clcret:InitOptions()
 	self.options = {
 		type = "group",
 		args = {
+			-- sov tracking
+			sov = {
+				order = 20,
+				name = "SoV Tracking",
+				type = "group",
+				args = {
+					enabled = {
+						order = 1,
+						type = "toggle",
+						name = "Enable vengeance/corruption tracking on multiple targets",
+						get = function(info) return db.sov.enabled end,
+						set = function(info, val) clcret:ToggleSovTracking() end,
+					},
+				},
+			},
 		
 			-- layout
 			layout = {

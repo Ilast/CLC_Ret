@@ -14,11 +14,15 @@ local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse ->
 local taowSpellName = GetSpellInfo(59578) 				-- the art of war
 local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
 local dpSpellName = GetSpellInfo(54428)					-- divine plea
-local sovName
+local sovName, sovId, sovTextureSpell
 if UnitFactionGroup("player") == "Alliance" then
+	sovId = 31803
 	sovName = GetSpellInfo(31803)						-- holy vengeance
+	sovTextureSpell = GetSpellInfo(31801)
 else
+	sovId = 53742
 	sovName = GetSpellInfo(53742)						-- blood corruption
+	sovTextureSpell = GetSpellInfo(53736)
 end
 
 -- priority queue generated from fcfs
@@ -36,6 +40,10 @@ local buttons = {}
 -- configurable buttons
 local auraButtons = {}
 local auraIndex
+-- bars for sov tracking
+local sovBars = {}
+local numSovBars = 5
+local sovAnchor
 
 -- addon status
 local addonEnabled = false			-- enabled
@@ -44,6 +52,9 @@ clcret.locked = true				-- main frame locked
 
 -- shortcut for db options
 local db
+
+-- used for sov tracking
+local playerName
 
 -- the spells used in fcfs
 clcret.spells = {
@@ -195,7 +206,22 @@ clcret.defaults = {
 					pointParent = "BOTTOMLEFT",
 				},
 			}
-		}
+		},
+		
+		-- Sov bars
+		sov = {
+			enabled = false,
+			width = 200,
+			height = 15,
+			fontSize = 13,
+			color = {1, 1, 0, 1},
+			point = "TOP",
+			pointParent = "BOTTOM",
+			x = 0,
+			y = 0,
+			growth = "up",
+			updatesPerSecond = 20,
+		},
 	}
 }
 -- blank rest of the auras buttons in default options
@@ -225,20 +251,28 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 local throttle = 0
 local throttleAuras = 0
+local throttleSov = 0
 local function OnUpdate(this, elapsed)
 	throttle = throttle + elapsed
-	throttleAuras = throttleAuras + elapsed
-	
 	if throttle > clcret.scanFrequency then
 		throttle = 0
 		clcret:CheckQueue()
 		clcret:CheckRange()
 	end
 	
+	throttleAuras = throttleAuras + elapsed
 	if throttleAuras > clcret.scanFrequencyAuras then
 		throttleAuras = 0
 		for i = 1, MAX_AURAS do
 			if db.auras[i].enabled then clcret:UpdateAuraButton(i) end
+		end
+	end
+	
+	if db.sov.enabled then
+		throttleSov = throttleSov + elapsed
+		if throttleSov > clcret.scanFrequencySov then
+			throttleSov = 0
+			clcret:UpdateSovBars()
 		end
 	end
 end
@@ -255,9 +289,12 @@ function clcret:OnInitialize()
 	
 	self.scanFrequency = 1 / db.updatesPerSecond
 	self.scanFrequencyAuras = 1 / db.updatesPerSecondAuras
+	self.scanFrequencySov = 1 / db.sov.updatesPerSecond
 	
 	self:RegisterChatCommand("rl", ReloadUI)
 	self:ScheduleTimer("Init", db.loadDelay)
+	
+	playerName = UnitName("player")
 end
 function clcret:Init()
 	self:InitSpells()
@@ -279,6 +316,13 @@ function clcret:Init()
 		self:RegisterEvent("PLAYER_TALENT_UPDATE")
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
+	end
+	
+	-- init sov bars
+	-- TODO: Make it dynamic later
+	self:InitSovBars()
+	if db.sov.enabled then
+		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 	end
 end
 -- get the spell names from ids
@@ -1044,6 +1088,10 @@ function clcret:FullDisableToggle()
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
 		
+		if db.sov.enabled then
+			self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		end
+		
 		-- do the normal load rutine
 		self:PLAYER_TALENT_UPDATE()
 	else
@@ -1061,6 +1109,8 @@ function clcret:FullDisableToggle()
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 		self:UnregisterEvent("UNIT_FACTION")
 		
+		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		
 		-- disable
 		self:Disable()
 	end
@@ -1077,3 +1127,259 @@ end
 function clcret:AuraButtonHide(index)
 	auraButtons[index]:Hide()
 end
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- MULTIPLE TARGET SOV TRACKING - Experimental
+-- ---------------------------------------------------------------------------------------------------------------------
+-- CLUE EVENTS TO TRACK
+-- SPELL_AURA_APPLIED -> dot applied 
+-- SPELL_AURA_APPLIED_DOSE -> dot stacks
+-- SPELL_AURA_REMOVED_DOSE -> dot stacks get removed
+-- SPELL_AURA_REFRESH -> dot refresh at 5 stacks
+-- SPELL_AURA_REMOVED -> dot removed
+-- ---------------------------------------------------------------------------------------------------------------------
+
+function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
+	if spellId == sovId then
+		if sourceName == playerName then
+			if combatEvent == "SPELL_AURA_APPLIED" then
+				self:Sov_SPELL_AURA_APPLIED(destGUID, destName)
+			elseif combatEvent == "SPELL_AURA_APPLIED_DOSE" then
+				self:Sov_SPELL_AURA_APPLIED_DOSE(destGUID, destName, dose)
+			elseif combatEvent == "SPELL_AURA_REMOVED_DOSE" then
+				self:Sov_SPELL_AURA_REMOVED_DOSE(destGUID, destName, dose)
+			elseif combatEvent == "SPELL_AURA_REFRESH" then
+				self:Sov_SPELL_AURA_REFRESH(destGUID, destName)
+			elseif combatEvent == "SPELL_AURA_REMOVED" then
+				self:Sov_SPELL_AURA_REMOVED(destGUID)
+			end
+		end
+	end
+end
+
+-- starts to track the hot for that guid
+function clcret:Sov_SPELL_AURA_APPLIED(guid, name, dose)
+	dose = dose or 1
+	for i = 1, 5 do
+		if sovBars[i].active == false then
+			local bar = sovBars[i]
+			bar.active = true
+			bar.guid = guid
+			bar.label:SetText(name)
+			bar.start = GetTime()
+			bar.duration = 15
+			bar.labelStack:SetText(dose)
+			return
+		end
+	end
+end
+
+-- updates the stack for the guid if it founds it, also refreshes timer
+function clcret:Sov_SPELL_AURA_APPLIED_DOSE(guid, name, dose)
+	for i = 1, 5 do
+		if sovBars[i].guid == guid then
+			sovBars[i].labelStack:SetText(dose)
+			sovBars[i].start = GetTime()
+			sovBars[i].active = true
+			return
+		end
+	end
+	
+	-- not found, but try to apply it
+	clcret:Sov_SPELL_AURA_APPLIED(guid, name, dose)
+end
+
+-- updates the stack for the guid if it founds it
+function clcret:Sov_SPELL_AURA_REMOVED_DOSE(guid, name, dose)
+	for i = 1, 5 do
+		if sovBars[i].guid == guid then
+			sovBars[i].labelStack:SetText(dose)
+			sovBars[i].active = true
+			return
+		end
+	end
+	
+	-- not found, but try to apply it
+	clcret:Sov_SPELL_AURA_APPLIED(guid, name, dose)
+end
+
+-- refreshes the timer
+function clcret:Sov_SPELL_AURA_REFRESH(guid, name)
+	for i = 1, 5 do
+		if sovBars[i].guid == guid then
+			sovBars[i].start = GetTime()
+			sovBars[i].active = true
+			return
+		end
+	end
+	
+	-- not found, but try to apply it
+	clcret:Sov_SPELL_AURA_APPLIED(guid, name, 5)
+end
+
+-- deactivates the bar
+function clcret:Sov_SPELL_AURA_REMOVED(guid)
+	for i = 1, 5 do
+		if sovBars[i].guid == guid then
+			sovBars[i].active = false
+			sovBars[i]:Hide()
+			return
+		end
+	end
+end
+
+
+-- update the bars
+function clcret:UpdateSovBars()
+	for i = 1, 5 do
+		self:UpdateSovBar(i)
+	end
+end
+function clcret:UpdateSovBar(index)
+	local bar = sovBars[index]
+	if not bar.active then return end
+	
+	local opt = db.sov
+	
+	local remaining = bar.duration - (GetTime() - bar.start)
+	if remaining <= 0 then
+		bar:Hide()
+		bar.active = false
+		return
+	end
+	bar:Show()
+	
+	local width, height
+	width = opt.width - opt.height
+	height = opt.height
+	
+	local progress = width * remaining / bar.duration - width
+	local texture = bar.texture
+	texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
+	
+	--[[
+	local spark = bar.spark
+	spark:SetPoint("TOP", texture, "TOPRIGHT", 0, 7)
+	spark:SetPoint("BOTTOM", texture, "BOTTOMRIGHT", 0, -7)
+	]]
+	
+	bar.labelTimer:SetText(floor(remaining + 0.5))
+end
+
+-- initialize the bars
+function clcret:InitSovBars()
+	-- create sov anchor
+	sovAnchor = self:CreateSovAnchor()
+	for i = 1, 5 do
+		sovBars[i] = self:CreateSovBar(i)
+	end
+end
+function clcret:CreateSovBar(index)
+	local frame = CreateFrame("Frame", "clcretSovBar" .. index, clcretFrame)
+	frame:Hide()
+	
+	local opt = db.sov
+	
+	frame:SetWidth(opt.width - opt.height)
+	frame:SetHeight(opt.height)
+	frame:SetPoint("TOP", clcretSovAnchor, "TOP", opt.height / 2, (1 - index) * opt.height)
+	
+	-- texture
+	frame.texture = frame:CreateTexture(nil, "ARTWORK")
+	frame.texture:SetAllPoints()
+	frame.texture:SetVertexColor(unpack(db.sov.color))
+	frame.texture:SetTexture(BGTEX)
+	
+	-- background
+	frame.bgtexture = frame:CreateTexture(nil, "BACKGROUND")
+	frame.bgtexture:SetAllPoints()
+	frame.bgtexture:SetVertexColor(0, 0, 0, 0.5)
+	frame.bgtexture:SetTexture(BGTEX)
+	
+	--[[
+	local spark = frame:CreateTexture(nil, "OVERLAY")
+	spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+	spark:SetWidth(10)
+	spark:SetHeight(10)
+	spark:SetBlendMode("ADD")
+	spark:SetTexCoord(0, 1, 0, 1)
+	frame.spark = spark
+	]]
+	
+	-- icon
+	frame.icon = frame:CreateTexture(nil, "ARTWORK")
+	frame.icon:SetTexture(GetSpellTexture(sovTextureSpell))
+	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	frame.icon:SetWidth(opt.height)
+	frame.icon:SetHeight(opt.height)
+	frame.icon:SetPoint("RIGHT", frame, "LEFT", 0, 0)
+	
+	local fontFace, fontFlags
+	
+	-- label for the name of the unit
+	frame.label = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+	fontFace, _, fontFlags = frame.label:GetFont()
+	frame.label:SetFont(fontFace, opt.height - 2, fontFlags)
+	frame.label:SetPoint("LEFT", frame, "LEFT", 3, 1)
+	frame.label:SetText("TargetName")
+	
+	-- label for timer
+	frame.labelTimer = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+	frame.labelTimer:SetFont(fontFace, opt.height - 2, fontFlags)
+	frame.labelTimer:SetPoint("RIGHT", frame, "RIGHT", -3, 1)
+	frame.labelTimer:SetText(20)
+	
+	-- stack
+	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+	fontFace, _, fontFlags = frame.labelStack:GetFont()
+	frame.labelStack:SetFont(fontFace, opt.height - 2, fontFlags)
+	frame.labelStack:SetPoint("CENTER", frame.icon)
+	frame.labelStack:SetText("3")
+	
+	-- other vars used
+	frame.start = 0
+	frame.duration = 0
+	frame.active = false	-- we can attach a timer to it
+	frame.guid = 0
+
+	return frame
+end
+function clcret:CreateSovAnchor()
+	local frame = CreateFrame("Frame", "clcretSovAnchor", clcretFrame)
+	frame:Hide()
+	local opt = db.sov
+	
+	frame:SetWidth(opt.width)
+	frame:SetHeight(opt.height)
+	frame:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	
+	local texture = frame:CreateTexture(nil, "BACKGROUND")
+	texture:SetAllPoints()
+	texture:SetTexture(BGTEX)
+	texture:SetVertexColor(0, 0, 0, 1)
+
+	return frame
+end
+
+-- toggle it on and off
+function clcret:ToggleSovTracking()
+	if db.sov.enabled then
+		-- disable
+		db.sov.enabled = false
+		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		
+		-- hide the bars
+		for i = 1, 5 do
+			sovBars[i].active = false
+			sovBars[i]:Hide()
+		end
+	else
+		-- enable
+		db.sov.enabled = true
+		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	end
+end
+-- ---------------------------------------------------------------------------------------------------------------------
+
