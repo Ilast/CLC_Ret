@@ -75,7 +75,8 @@ clcret.spells = {
 -- ---------------------------------------------------------------------------------------------------------------------
 clcret.defaults = {
 	char = {
-		-- layout settings for the main frame (the black box you toggle on and off)
+		-- layout settings for the main frame (the black box you toggle on and off)\
+		zoomIcons = true,
 		x = 500,
 		y = 300,
 		scale = 1,
@@ -223,6 +224,7 @@ clcret.defaults = {
 			y = 0,
 			growUp = false,
 			updatesPerSecond = 20,
+			targetAlpha = 1,
 		},
 	}
 }
@@ -423,7 +425,7 @@ function clcret:UpdateShowMethod()
 		self:RegisterEvent("PLAYER_REGEN_ENABLED")
 		self:RegisterEvent("PLAYER_REGEN_DISABLED")
 		
-	elseif db.show == "valid" then
+	elseif db.show == "valid" or db.show == "boss" then
 		self:PLAYER_TARGET_CHANGED()
 		self:RegisterEvent("PLAYER_TARGET_CHANGED")
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED")
@@ -448,6 +450,14 @@ end
 -- target change
 function clcret:PLAYER_TARGET_CHANGED()
 	if not addonEnabled then return end
+	
+	if db.show == "boss" then
+		if UnitClassification("target") ~= "worldboss" then
+			self.frame:Hide()
+			return
+		end
+	end
+	
 	if UnitExists("target") and UnitCanAttack("player", "target") and (not UnitIsDead("target")) then
 		self.frame:Show()
 	else
@@ -896,9 +906,20 @@ function clcret:UpdateSkillButtonsLayout()
 		button:ClearAllPoints()
 		button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
 		self:UpdateBorder(button)
+		
+		if db.zoomIcons then
+			button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+		else
+			button.texture:SetTexCoord(0, 1, 0, 1)
+		end
 	end
 end
 
+function clcret:UpdateAuraButtonsLayout()
+	for i = 1, MAX_AURAS do
+		self:UpdateAuraButtonLayout(i)
+	end
+end
 -- update size, width, position for aura buttons
 function clcret:UpdateAuraButtonLayout(index)
 	local button = auraButtons[index]
@@ -908,6 +929,11 @@ function clcret:UpdateAuraButtonLayout(index)
 	button:ClearAllPoints()
 	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
 	self:UpdateBorder(button)
+	if db.zoomIcons then
+		button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	else
+		button.texture:SetTexCoord(0, 1, 0, 1)
+	end
 end
 
 -- update scale, alpha, position for main frame
@@ -1029,7 +1055,9 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	local texture = button:CreateTexture(nil,"BACKGROUND")
 	texture:SetAllPoints(button)
 	texture:SetTexture(BGTEX)
-	texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	if db.zoomIcons then
+		texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	end
 	button.texture = texture
 	
 	-- create border
@@ -1245,6 +1273,7 @@ function clcret:UpdateSovBars()
 	for i = 1, MAX_SOVBARS do
 		self:UpdateSovBar(i)
 	end
+	self.targetGUID = UnitGUID("target")
 end
 function clcret:UpdateSovBar(index)
 	local bar = sovBars[index]
@@ -1259,6 +1288,17 @@ function clcret:UpdateSovBar(index)
 		return
 	end
 	bar:Show()
+	
+			
+	if db.sov.targetAlpha < 1 then
+		if bar.guid == self.targetGUID then
+			bar:SetAlpha(1)
+		else
+			bar:SetAlpha(db.sov.targetAlpha)
+		end
+	else
+		bar:SetAlpha(1)
+	end
 	
 	local width, height
 	width = opt.width - opt.height

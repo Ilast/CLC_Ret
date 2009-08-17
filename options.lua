@@ -74,6 +74,18 @@ function clcret:InitOptions()
 							clcret:UpdateSovBarsLayout()
 						end,
 					},
+					targetAlpha = {
+						order = 8,
+						type = "range",
+						min = 0,
+						max = 1, 
+						step = 0.1, 
+						name = "Alpha for non targeted units",
+						get = function(info) return db.sov.targetAlpha end,
+						set = function(info, val)
+							db.sov.targetAlpha = val
+						end,
+					},
 					anchor = {
 						order = 10,
 						type = "select",
@@ -203,8 +215,19 @@ function clcret:InitOptions()
 				name = "Appearance",
 				type = "group",
 				args = {
-					scale = {
+					zoomIcons = {
 						order = 1,
+						type = "toggle",
+						name = "Zoomed icons",
+						get = function(info) return db.zoomIcons end,
+						set = function(info, val)
+							db.zoomIcons = val
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+						end,
+					},
+					scale = {
+						order = 5,
 						type = "range",
 						name = "Scale",
 						min = 0,
@@ -217,7 +240,7 @@ function clcret:InitOptions()
 						end,
 					},
 					alpha = {
-						order = 2,
+						order = 7,
 						type = "range",
 						name = "Alpha",
 						min = 0,
@@ -272,7 +295,7 @@ function clcret:InitOptions()
 							db.show = val
 							clcret:UpdateShowMethod()
 						end,
-						values = { always = "Always", combat = "In Combat", valid = "Valid Target" }
+						values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
 					},
 					borderSize = {
 						order = 31,
@@ -517,7 +540,7 @@ function clcret:InitOptions()
 				spell = {
 					order = 5,
 					type = "input",
-					name = "Spell name/id or buff to track",
+					name = "Spell/item name/id or buff to track",
 					get = function(info) return db.auras[i].data.spell end,
 					set = function(info, val)
 						-- skill
