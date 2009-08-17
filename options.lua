@@ -44,6 +44,121 @@ function clcret:InitOptions()
 						get = function(info) return db.sov.enabled end,
 						set = function(info, val) clcret:ToggleSovTracking() end,
 					},
+					updatesPerSecond = {
+						order = 3,
+						type = "range",
+						name = "Updates per second",
+						min = 1,
+						max = 100,
+						step = 1,
+						get = function(info) return db.sov.updatesPerSecond end,
+						set = function(info, val)
+							db.sov.updatesPerSecond = val
+							self.scanFrequencySov = 1 / val
+						end,
+					},
+					showAnchor = {
+						order = 5,
+						type = "toggle",
+						name = "Show anchor (not movable)",
+						get = function(info) return clcret.showSovAnchor end,
+						set = function(invo, val) clcret:ToggleSovAnchor() end,
+					},
+					growUp = {
+						order = 7,
+						type = "toggle",
+						name = "Grow Up",
+						get = function(info) return db.sov.growUp end,
+						set = function(info, val)
+							db.sov.growUp = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					anchor = {
+						order = 10,
+						type = "select",
+						name = "Anchor",
+						get = function(info) return db.sov.point end,
+						set = function(info, val)
+							db.sov.point = val
+							clcret:UpdateSovBarsLayout()
+						end,
+						values = anchorPoints,
+					},
+					anchorTo = {
+						order = 11,
+						type = "select",
+						name = "Anchor To",
+						get = function(info) return db.sov.pointParent end,
+						set = function(info, val)
+							db.sov.pointParent = val
+							clcret:UpdateSovBarsLayout()
+						end,
+						values = anchorPoints,
+					},
+					x = {
+						order = 12,
+						type = "range",
+						name = "X",
+						min = -1000,
+						max = 1000,
+						step = 1,
+						get = function(info) return db.sov.x end,
+						set = function(info, val)
+							db.sov.x = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					y = {
+						order = 13,
+						type = "range",
+						name = "Y",
+						min = -1000,
+						max = 1000,
+						step = 1,
+						get = function(info) return db.sov.y end,
+						set = function(info, val)
+							db.sov.y = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					color = {
+						order = 17,
+						type = "color",
+						name = "Bar color",
+						hasAlpha = true,
+						get = function(info) return unpack(db.sov.color) end,
+						set = function(info, r, g, b, a)
+							db.sov.color = {r, g, b, a}
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					width = {
+						order = 20,
+						type = "range",
+						name = "Width",
+						min = 1,
+						max = 1000,
+						step = 1,
+						get = function(info) return db.sov.width end,
+						set = function(info, val)
+							db.sov.width = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					height = {
+						order = 21,
+						type = "range",
+						name = "Height",
+						min = 1,
+						max = 1000,
+						step = 1,
+						get = function(info) return db.sov.height end,
+						set = function(info, val)
+							db.sov.height = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
 				},
 			},
 		

@@ -5,6 +5,7 @@ end
 clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0", "AceTimer-3.0")
 
 local MAX_AURAS = 10
+local MAX_SOVBARS = 5
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
 
 -- cleanse spell name, used for gcd
@@ -42,8 +43,9 @@ local auraButtons = {}
 local auraIndex
 -- bars for sov tracking
 local sovBars = {}
-local numSovBars = 5
+local MAX_SOVBARS = 5
 local sovAnchor
+clcret.showSovAnchor = false
 
 -- addon status
 local addonEnabled = false			-- enabled
@@ -213,13 +215,12 @@ clcret.defaults = {
 			enabled = false,
 			width = 200,
 			height = 15,
-			fontSize = 13,
 			color = {1, 1, 0, 1},
 			point = "TOP",
 			pointParent = "BOTTOM",
 			x = 0,
 			y = 0,
-			growth = "up",
+			growUp = false,
 			updatesPerSecond = 20,
 		},
 	}
@@ -264,7 +265,11 @@ local function OnUpdate(this, elapsed)
 	if throttleAuras > clcret.scanFrequencyAuras then
 		throttleAuras = 0
 		for i = 1, MAX_AURAS do
-			if db.auras[i].enabled then clcret:UpdateAuraButton(i) end
+			if db.auras[i].enabled then
+				-- TODO: check docs to see how it's done properly
+				auraIndex = i
+				clcret[db.auras[i].data.exec]()
+			end
 		end
 	end
 	
@@ -419,7 +424,6 @@ function clcret:UpdateShowMethod()
 		
 	elseif db.show == "valid" then
 		self:PLAYER_TARGET_CHANGED()
-		-- self:ScheduleRepeatingTimer("PLAYER_TARGET_CHANGED", 5) -- small hack till I find out all the events that affect the target
 		self:RegisterEvent("PLAYER_TARGET_CHANGED")
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED")
 		self:RegisterEvent("UNIT_FACTION")
@@ -507,13 +511,6 @@ function clcret:UpdateUI()
 				button.cooldown:Hide()
 		end
 	end
-end
-
--- calls the exec function for a specific aura button
-function clcret:UpdateAuraButton(index)
-	-- TODO: check docs to see how it's done properly
-	auraIndex = index
-	self[db.auras[index].data.exec]()
 end
 
 -- just show the button for positioning
@@ -1162,7 +1159,7 @@ end
 -- starts to track the hot for that guid
 function clcret:Sov_SPELL_AURA_APPLIED(guid, name, dose)
 	dose = dose or 1
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		if sovBars[i].active == false then
 			local bar = sovBars[i]
 			bar.active = true
@@ -1178,7 +1175,7 @@ end
 
 -- updates the stack for the guid if it founds it, also refreshes timer
 function clcret:Sov_SPELL_AURA_APPLIED_DOSE(guid, name, dose)
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		if sovBars[i].guid == guid then
 			sovBars[i].labelStack:SetText(dose)
 			sovBars[i].start = GetTime()
@@ -1193,7 +1190,7 @@ end
 
 -- updates the stack for the guid if it founds it
 function clcret:Sov_SPELL_AURA_REMOVED_DOSE(guid, name, dose)
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		if sovBars[i].guid == guid then
 			sovBars[i].labelStack:SetText(dose)
 			sovBars[i].active = true
@@ -1207,7 +1204,7 @@ end
 
 -- refreshes the timer
 function clcret:Sov_SPELL_AURA_REFRESH(guid, name)
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		if sovBars[i].guid == guid then
 			sovBars[i].start = GetTime()
 			sovBars[i].active = true
@@ -1221,7 +1218,7 @@ end
 
 -- deactivates the bar
 function clcret:Sov_SPELL_AURA_REMOVED(guid)
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		if sovBars[i].guid == guid then
 			sovBars[i].active = false
 			sovBars[i]:Hide()
@@ -1233,7 +1230,7 @@ end
 
 -- update the bars
 function clcret:UpdateSovBars()
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		self:UpdateSovBar(i)
 	end
 end
@@ -1259,22 +1256,56 @@ function clcret:UpdateSovBar(index)
 	local texture = bar.texture
 	texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
 	
-	--[[
-	local spark = bar.spark
-	spark:SetPoint("TOP", texture, "TOPRIGHT", 0, 7)
-	spark:SetPoint("BOTTOM", texture, "BOTTOMRIGHT", 0, -7)
-	]]
-	
 	bar.labelTimer:SetText(floor(remaining + 0.5))
+end
+
+-- updates everything
+function clcret:UpdateSovBarsLayout()
+	local opt = db.sov
+	local bar, fontFace, fontFlags
+	
+	clcretSovAnchor:SetWidth(opt.width)
+	clcretSovAnchor:SetHeight(opt.height)
+	clcretSovAnchor:ClearAllPoints()
+	clcretSovAnchor:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	
+	for i = 1, MAX_SOVBARS do
+		bar = sovBars[i]
+					
+		bar:SetWidth(opt.width - opt.height)
+		bar:SetHeight(opt.height)
+		bar:ClearAllPoints()
+		if opt.growUp then
+			bar:SetPoint("BOTTOM", clcretSovAnchor, "BOTTOM", opt.height / 2, (i - 1) * opt.height)
+		else
+			bar:SetPoint("TOP", clcretSovAnchor, "TOP", opt.height / 2, (1 - i) * opt.height)
+		end
+		
+		bar.texture:SetVertexColor(unpack(db.sov.color))
+		
+		bar.icon:SetWidth(opt.height)
+		bar.icon:SetHeight(opt.height)
+		
+		fontFace, _, fontFlags = bar.label:GetFont()
+		bar.label:SetFont(fontFace, opt.height - 3, fontFlags)
+		bar.label:SetWidth(max(5, opt.width - 2.2 * opt.height))
+		bar.label:SetHeight(opt.height - 5)
+		bar.labelTimer:SetFont(fontFace, opt.height - 3, fontFlags)
+		
+		fontFace, _, fontFlags = bar.labelStack:GetFont()
+		bar.labelStack:SetFont(fontFace, opt.height - 2, fontFlags)
+	end
 end
 
 -- initialize the bars
 function clcret:InitSovBars()
 	-- create sov anchor
 	sovAnchor = self:CreateSovAnchor()
-	for i = 1, 5 do
+	for i = 1, MAX_SOVBARS do
 		sovBars[i] = self:CreateSovBar(i)
 	end
+	
+	self:UpdateSovBarsLayout()
 end
 function clcret:CreateSovBar(index)
 	local frame = CreateFrame("Frame", "clcretSovBar" .. index, clcretFrame)
@@ -1282,14 +1313,9 @@ function clcret:CreateSovBar(index)
 	
 	local opt = db.sov
 	
-	frame:SetWidth(opt.width - opt.height)
-	frame:SetHeight(opt.height)
-	frame:SetPoint("TOP", clcretSovAnchor, "TOP", opt.height / 2, (1 - index) * opt.height)
-	
 	-- texture
 	frame.texture = frame:CreateTexture(nil, "ARTWORK")
 	frame.texture:SetAllPoints()
-	frame.texture:SetVertexColor(unpack(db.sov.color))
 	frame.texture:SetTexture(BGTEX)
 	
 	-- background
@@ -1298,45 +1324,26 @@ function clcret:CreateSovBar(index)
 	frame.bgtexture:SetVertexColor(0, 0, 0, 0.5)
 	frame.bgtexture:SetTexture(BGTEX)
 	
-	--[[
-	local spark = frame:CreateTexture(nil, "OVERLAY")
-	spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
-	spark:SetWidth(10)
-	spark:SetHeight(10)
-	spark:SetBlendMode("ADD")
-	spark:SetTexCoord(0, 1, 0, 1)
-	frame.spark = spark
-	]]
-	
 	-- icon
 	frame.icon = frame:CreateTexture(nil, "ARTWORK")
 	frame.icon:SetTexture(GetSpellTexture(sovTextureSpell))
 	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	frame.icon:SetWidth(opt.height)
-	frame.icon:SetHeight(opt.height)
 	frame.icon:SetPoint("RIGHT", frame, "LEFT", 0, 0)
 	
 	local fontFace, fontFlags
 	
 	-- label for the name of the unit
-	frame.label = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-	fontFace, _, fontFlags = frame.label:GetFont()
-	frame.label:SetFont(fontFace, opt.height - 2, fontFlags)
+	frame.label = frame:CreateFontString(nil, "OVERLAY", "SystemFont_Shadow_Small")
 	frame.label:SetPoint("LEFT", frame, "LEFT", 3, 1)
-	frame.label:SetText("TargetName")
+	frame.label:SetJustifyH("LEFT")
 	
 	-- label for timer
-	frame.labelTimer = frame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-	frame.labelTimer:SetFont(fontFace, opt.height - 2, fontFlags)
-	frame.labelTimer:SetPoint("RIGHT", frame, "RIGHT", -3, 1)
-	frame.labelTimer:SetText(20)
+	frame.labelTimer = frame:CreateFontString(nil, "OVERLAY", "SystemFont_Shadow_Small")
+	frame.labelTimer:SetPoint("RIGHT", frame, "RIGHT", -1, 1)
 	
 	-- stack
 	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-	fontFace, _, fontFlags = frame.labelStack:GetFont()
-	frame.labelStack:SetFont(fontFace, opt.height - 2, fontFlags)
 	frame.labelStack:SetPoint("CENTER", frame.icon)
-	frame.labelStack:SetText("3")
 	
 	-- other vars used
 	frame.start = 0
@@ -1349,11 +1356,6 @@ end
 function clcret:CreateSovAnchor()
 	local frame = CreateFrame("Frame", "clcretSovAnchor", clcretFrame)
 	frame:Hide()
-	local opt = db.sov
-	
-	frame:SetWidth(opt.width)
-	frame:SetHeight(opt.height)
-	frame:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
 	
 	local texture = frame:CreateTexture(nil, "BACKGROUND")
 	texture:SetAllPoints()
@@ -1361,6 +1363,19 @@ function clcret:CreateSovAnchor()
 	texture:SetVertexColor(0, 0, 0, 1)
 
 	return frame
+end
+
+-- toggle anchor visibility
+function clcret:ToggleSovAnchor()
+	if self.showSovAnchor then
+		-- hide
+		self.showSovAnchor = false
+		clcretSovAnchor:Hide()
+	else
+		-- show
+		self.showSovAnchor = true
+		clcretSovAnchor:Show()
+	end
 end
 
 -- toggle it on and off
@@ -1371,7 +1386,7 @@ function clcret:ToggleSovTracking()
 		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 		
 		-- hide the bars
-		for i = 1, 5 do
+		for i = 1, MAX_SOVBARS do
 			sovBars[i].active = false
 			sovBars[i]:Hide()
 		end
