@@ -1287,13 +1287,13 @@ function clcret:UpdateSovBarsLayout()
 		bar.icon:SetHeight(opt.height)
 		
 		fontFace, _, fontFlags = bar.label:GetFont()
-		bar.label:SetFont(fontFace, opt.height - 3, fontFlags)
+		bar.label:SetFont(fontFace, max(5, opt.height - 3), fontFlags)
 		bar.label:SetWidth(max(5, opt.width - 2.2 * opt.height))
-		bar.label:SetHeight(opt.height - 5)
-		bar.labelTimer:SetFont(fontFace, opt.height - 3, fontFlags)
+		bar.label:SetHeight(max(5, opt.height - 5))
+		bar.labelTimer:SetFont(fontFace, max(5, opt.height - 3), fontFlags)
 		
 		fontFace, _, fontFlags = bar.labelStack:GetFont()
-		bar.labelStack:SetFont(fontFace, opt.height - 2, fontFlags)
+		bar.labelStack:SetFont(fontFace, max(5, opt.height - 2), fontFlags)
 	end
 end
 

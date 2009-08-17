@@ -151,7 +151,7 @@ function clcret:InitOptions()
 						type = "range",
 						name = "Height",
 						min = 1,
-						max = 1000,
+						max = 500,
 						step = 1,
 						get = function(info) return db.sov.height end,
 						set = function(info, val)
