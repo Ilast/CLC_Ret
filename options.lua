@@ -434,9 +434,16 @@ function clcret:InitOptions()
 				unit = {
 					order = 15,
 					type = "input",
-					name = "Unit to track",
+					name = "Target unit",
 					get = function(info) return db.auras[i].data.unit end,
 					set = function(info, val) db.auras[i].data.unit = val end
+				},
+				byPlayer = {
+					order = 16,
+					type = "toggle",
+					name = "Cast by player",
+					get = function(info) return db.auras[i].data.byPlayer end,
+					set = function(info, val) db.auras[i].data.byPlayer = val end
 				}
 			},
 		}

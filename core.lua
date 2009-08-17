@@ -126,7 +126,8 @@ clcret.defaults = {
 					exec = "AuraButtonExecSkillVisibleAlways",
 					spell = awSpellName,
 					texture = "",
-					unit = "",
+					unit = "",		-- target
+					byPlayer = true,	
 				},
 				layout = {
 					size = 30,
@@ -145,6 +146,7 @@ clcret.defaults = {
 					exec = "AuraButtonExecSkillVisibleNoCooldown",
 					spell = dpSpellName,
 					unit = "",
+					byPlayer = true,
 				},
 				layout = {
 					size = 30,
@@ -163,6 +165,7 @@ clcret.defaults = {
 					exec = "AuraButtonExecGenericDebuff",
 					spell = sovName,
 					unit = "target",
+					byPlayer = true,					
 				},
 				layout = {
 					size = 30,
@@ -182,6 +185,7 @@ clcret.defaults = {
 					exec = "AuraButtonExecGenericBuff",
 					spell = taowSpellName,
 					unit = "player",
+					byPlayer = true,
 				},
 				layout = {
 					size = 30,
@@ -202,6 +206,7 @@ for i = 5, MAX_AURAS do
 			exec = "AuraButtonExecNone",
 			spell = "",
 			unit = "",
+			byPlayer = true,
 		},
 		layout = {
 			size = 30,
@@ -606,7 +611,7 @@ function clcret:AuraButtonExecItemVisibleNoCooldown()
 	end
 end
 
--- checks for a buff cast by player on specified unit
+-- checks for a buff by player (or someone) on unit
 function clcret:AuraButtonExecGenericBuff()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -618,34 +623,39 @@ function clcret:AuraButtonExecGenericBuff()
 	end
 	
 	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitBuff(data.unit, data.spell)
-	if name and (caster == "player") then 
-		-- found the debuff
-		-- update only if it changes
-		if button.expirationTime ~= expirationTime then
-			button.expirationTime = expirationTime
-			button.cooldown:SetCooldown(expirationTime - duration, duration)
-		end
-		
-		-- fix texture once
-		if not button.hasTexture then
-			button.texture:SetTexture(icon)
-			button.hasTexture = true
-		end
-		
-		button:Show()
-		
-		if count > 1 then
-			button.stack:SetText(count)
-			button.stack:Show()
+	if name then
+		if data.byPlayer and (caster ~= "player") then
+			-- player required and not found
+			button:Hide()
 		else
-			button.stack:Hide()
+			-- found the debuff
+			-- update only if it changes
+			if button.expirationTime ~= expirationTime then
+				button.expirationTime = expirationTime
+				button.cooldown:SetCooldown(expirationTime - duration, duration)
+			end
+			
+			-- fix texture once
+			if not button.hasTexture then
+				button.texture:SetTexture(icon)
+				button.hasTexture = true
+			end
+			
+			button:Show()
+			
+			if count > 1 then
+				button.stack:SetText(count)
+				button.stack:Show()
+			else
+				button.stack:Hide()
+			end
 		end
 	else
 		button:Hide()
 	end
 end
 
--- checks for a debuff cast by player on specified unit
+-- checks for a debuff cast by player (or someone) on unit
 function clcret:AuraButtonExecGenericDebuff()
 	local index = auraIndex
 	local button = auraButtons[index]
@@ -657,27 +667,31 @@ function clcret:AuraButtonExecGenericDebuff()
 	end
 	
 	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitDebuff(data.unit, data.spell)
-	if name and (caster == "player") then 
-		-- found the debuff
-		-- update only if it changes
-		if button.expirationTime ~= expirationTime then
-			button.expirationTime = expirationTime
-			button.cooldown:SetCooldown(expirationTime - duration, duration)
-		end
-		
-		-- fix texture once
-		if not button.hasTexture then
-			button.texture:SetTexture(icon)
-			button.hasTexture = true
-		end
-		
-		button:Show()
-		
-		if count > 1 then
-			button.stack:SetText(count)
-			button.stack:Show()
+	if name then
+		if data.byPlayer and (caster ~= "player") then
+			button:Hide()
 		else
-			button.stack:Hide()
+			-- found the debuff
+			-- update only if it changes
+			if button.expirationTime ~= expirationTime then
+				button.expirationTime = expirationTime
+				button.cooldown:SetCooldown(expirationTime - duration, duration)
+			end
+			
+			-- fix texture once
+			if not button.hasTexture then
+				button.texture:SetTexture(icon)
+				button.hasTexture = true
+			end
+			
+			button:Show()
+			
+			if count > 1 then
+				button.stack:SetText(count)
+				button.stack:Show()
+			else
+				button.stack:Hide()
+			end
 		end
 	else
 		button:Hide()
