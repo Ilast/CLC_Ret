@@ -405,16 +405,6 @@ function clcret:InitOptions()
 						get = function(info) return db.manaDPPerc end,
 						set = function(info, val) db.manaDPPerc = val end,
 					},
-					delay = {
-						order = 20,
-						type = "range",
-						name = "Delay before addon loads",
-						min = 0,
-						max = 30,
-						step = 1,
-						get = function(info) return db.loadDelay end,
-						set = function(info, val) db.loadDelay = val end,
-					},
 					gcdDpSs = {
 						order = 30,
 						type = "range",

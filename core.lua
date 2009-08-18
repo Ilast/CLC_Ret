@@ -2,7 +2,7 @@ local function bprint(s)
 	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
 
-clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0", "AceTimer-3.0")
+clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0")
 
 local MAX_AURAS = 10
 local MAX_SOVBARS = 5
@@ -107,7 +107,6 @@ clcret.defaults = {
 		manaConsPerc = 0,
 		manaDP = 0,
 		manaDPPerc = 0,
-		loadDelay = 10,
 		gcdDpSs = 0,
 		
 		-- layout of the 2 skill button
@@ -294,17 +293,23 @@ function clcret:OnInitialize()
 	-- SAVEDVARS
 	self.db = LibStub("AceDB-3.0"):New("clcretDB", self.defaults)
 	db = self.db.char
+
+	-- init the rest at first PLAYER_ENTERING_WORLD call
+	-- hopefuly talent data will be available
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", "Init")
+end
+function clcret:Init()
+	-- unregister the event used
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	
+	-- get player name for sov tracking 
+	playerName = UnitName("player")
+	
+	-- update rates
 	self.scanFrequency = 1 / db.updatesPerSecond
 	self.scanFrequencyAuras = 1 / db.updatesPerSecondAuras
 	self.scanFrequencySov = 1 / db.sov.updatesPerSecond
-	
-	self:RegisterChatCommand("rl", ReloadUI)
-	self:ScheduleTimer("Init", db.loadDelay)
-	
-	playerName = UnitName("player")
-end
-function clcret:Init()
+
 	self:InitSpells()
 	self:InitOptions()
 	
@@ -1289,7 +1294,7 @@ function clcret:UpdateSovBar(index)
 	end
 	bar:Show()
 	
-			
+	-- alpha difference in targeted units
 	if db.sov.targetAlpha < 1 then
 		if bar.guid == self.targetGUID then
 			bar:SetAlpha(1)
