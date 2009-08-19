@@ -523,11 +523,8 @@ function clcret:UpdateUI()
 		local button = buttons[i]
 		button.texture:SetTexture(GetSpellTexture(dq[i].name))
 			
-		if dq[i].cd > 0 then
-				button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
-				button.cooldown:Show()
-		else
-				button.cooldown:Hide()
+		if dq[i].cdDuration > 0 then
+			button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
 		end
 	end
 end
@@ -558,16 +555,8 @@ function clcret:AuraButtonExecSkillVisibleAlways()
 	end
 	
 	local start, duration = GetSpellCooldown(data.spell)
-	if start ~= button.start then 
-		button.start = start
-		button.duration = duration
-		local cd = start + duration - GetTime()
-		if cd > 0 then
-				button.cooldown:SetCooldown(start, duration)
-				button.cooldown:Show()
-		else
-				button.cooldown:Hide()
-		end
+	if duration > 0 then
+		button.cooldown:SetCooldown(start, duration)
 	end
 end
 
@@ -625,17 +614,10 @@ function clcret:AuraButtonExecItemVisibleAlways()
 	end
 	
 	local start, duration = GetItemCooldown(data.spell)
-	if start ~= button.start then 
-		button.start = start
-		button.duration = duration
-		local cd = start + duration - GetTime()
-		if cd > 0 then
-				button.cooldown:SetCooldown(start, duration)
-				button.cooldown:Show()
-		else
-				button.cooldown:Hide()
-		end
+	if duration > 0 then
+		button.cooldown:SetCooldown(start, duration)
 	end
+
 end
 
 -- shows shows an equiped usable item only when out of cooldown
@@ -689,9 +671,7 @@ function clcret:AuraButtonExecGenericBuff()
 			button:Hide()
 		else
 			-- found the debuff
-			-- update only if it changes
-			if button.expirationTime ~= expirationTime then
-				button.expirationTime = expirationTime
+			if duration > 0 then
 				button.cooldown:SetCooldown(expirationTime - duration, duration)
 			end
 			
@@ -732,9 +712,7 @@ function clcret:AuraButtonExecGenericDebuff()
 			button:Hide()
 		else
 			-- found the debuff
-			-- update only if it changes
-			if button.expirationTime ~= expirationTime then
-				button.expirationTime = expirationTime
+			if duration > 0 then
 				button.cooldown:SetCooldown(expirationTime - duration, duration)
 			end
 			
@@ -1098,7 +1076,6 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	
 	local cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
 	cooldown:SetAllPoints(button)
-	cooldown:Hide()
 	button.cooldown = cooldown
 	
 	if hasStack then
@@ -1305,7 +1282,9 @@ function clcret:UpdateSovBar(index)
 				bar:SetAlpha(1)
 			end
 		end
-		bar.cooldown:SetCooldown(bar.start, bar.duration)
+		if bar.duration > 0 then
+			bar.cooldown:SetCooldown(bar.start, bar.duration)
+		end
 	else
 		-- alpha difference in targeted units
 		if db.sov.targetDifference then
@@ -1495,7 +1474,6 @@ function clcret:CreateSovBar(index)
 	-- cooldown for button mode
 	frame.cooldown = CreateFrame("Cooldown", "$parentCooldown", frame)
 	frame.cooldown:SetAllPoints(frame)
-	frame.cooldown:Hide()
 	
 	-- stack
 	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
