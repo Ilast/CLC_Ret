@@ -64,30 +64,73 @@ function clcret:InitOptions()
 						get = function(info) return clcret.showSovAnchor end,
 						set = function(invo, val) clcret:ToggleSovAnchor() end,
 					},
-					growUp = {
-						order = 7,
+					useButtons = {
+						order = 5,
 						type = "toggle",
-						name = "Grow Up",
-						get = function(info) return db.sov.growUp end,
-						set = function(info, val)
-							db.sov.growUp = val
+						name = "Buttons instead of bars",
+						get = function(info) return db.sov.useButtons end,
+						set = function(invo, val)
+							db.sov.useButtons = val
 							clcret:UpdateSovBarsLayout()
 						end,
 					},
-					targetAlpha = {
-						order = 8,
-						type = "range",
-						min = 0,
-						max = 1, 
-						step = 0.1, 
-						name = "Alpha for non targeted units",
-						get = function(info) return db.sov.targetAlpha end,
+					growth = {
+						order = 10,
+						type = "select",
+						name = "Growth direction",
+						get = function(info) return db.sov.growth end,
 						set = function(info, val)
-							db.sov.targetAlpha = val
+							db.sov.growth = val
+							clcret:UpdateSovBarsLayout()
+						end,
+						values = { up = "Up", down = "Down", left = "Left", right = "Right" }
+					},
+					spacing = {
+						order = 11,
+						type = "range",
+						name = "Spacing",
+						min = 0,
+						max = 100,
+						step = 1,
+						get = function(info) return db.sov.spacing end,
+						set = function(info, val)
+							db.sov.spacing = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					targetDifference = {
+						order = 15,
+						type = "toggle",
+						name = "Different color for target",
+						get = function(info) return db.sov.targetDifference end,
+						set = function(info, val)
+							db.sov.targetDifference = val
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					color = {
+						order = 16,
+						type = "color",
+						name = "Bar color",
+						hasAlpha = true,
+						get = function(info) return unpack(db.sov.color) end,
+						set = function(info, r, g, b, a)
+							db.sov.color = {r, g, b, a}
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					colorNonTarget = {
+						order = 17,
+						type = "color",
+						name = "Non target color",
+						hasAlpha = true,
+						get = function(info) return unpack(db.sov.colorNonTarget) end,
+						set = function(info, r, g, b, a)
+							db.sov.colorNonTarget = {r, g, b, a}
 						end,
 					},
 					anchor = {
-						order = 10,
+						order = 20,
 						type = "select",
 						name = "Anchor",
 						get = function(info) return db.sov.point end,
@@ -98,7 +141,7 @@ function clcret:InitOptions()
 						values = anchorPoints,
 					},
 					anchorTo = {
-						order = 11,
+						order = 21,
 						type = "select",
 						name = "Anchor To",
 						get = function(info) return db.sov.pointParent end,
@@ -109,7 +152,7 @@ function clcret:InitOptions()
 						values = anchorPoints,
 					},
 					x = {
-						order = 12,
+						order = 22,
 						type = "range",
 						name = "X",
 						min = -1000,
@@ -122,7 +165,7 @@ function clcret:InitOptions()
 						end,
 					},
 					y = {
-						order = 13,
+						order = 23,
 						type = "range",
 						name = "Y",
 						min = -1000,
@@ -134,19 +177,8 @@ function clcret:InitOptions()
 							clcret:UpdateSovBarsLayout()
 						end,
 					},
-					color = {
-						order = 17,
-						type = "color",
-						name = "Bar color",
-						hasAlpha = true,
-						get = function(info) return unpack(db.sov.color) end,
-						set = function(info, r, g, b, a)
-							db.sov.color = {r, g, b, a}
-							clcret:UpdateSovBarsLayout()
-						end,
-					},
 					width = {
-						order = 20,
+						order = 30,
 						type = "range",
 						name = "Width",
 						min = 1,
@@ -159,9 +191,9 @@ function clcret:InitOptions()
 						end,
 					},
 					height = {
-						order = 21,
+						order = 31,
 						type = "range",
-						name = "Height",
+						name = "Height (Size for buttons)",
 						min = 1,
 						max = 500,
 						step = 1,

@@ -216,14 +216,17 @@ clcret.defaults = {
 			enabled = false,
 			width = 200,
 			height = 15,
+			spacing = 5,
 			color = {1, 1, 0, 1},
 			point = "TOP",
 			pointParent = "BOTTOM",
 			x = 0,
 			y = 0,
-			growUp = false,
+			growth = "down",
 			updatesPerSecond = 20,
-			targetAlpha = 1,
+			colorNonTarget = {1, 1, 0, 1},
+			targetDifference = false,
+			useButtons = false,
 		},
 	}
 }
@@ -1275,10 +1278,13 @@ end
 
 -- update the bars
 function clcret:UpdateSovBars()
+	if db.sov.targetDifference then
+		self.targetGUID = UnitGUID("target")
+	end
+
 	for i = 1, MAX_SOVBARS do
 		self:UpdateSovBar(i)
 	end
-	self.targetGUID = UnitGUID("target")
 end
 function clcret:UpdateSovBar(index)
 	local bar = sovBars[index]
@@ -1294,26 +1300,38 @@ function clcret:UpdateSovBar(index)
 	end
 	bar:Show()
 	
-	-- alpha difference in targeted units
-	if db.sov.targetAlpha < 1 then
-		if bar.guid == self.targetGUID then
-			bar:SetAlpha(1)
-		else
-			bar:SetAlpha(db.sov.targetAlpha)
+	if opt.useButtons then
+		-- alpha difference in targeted units
+		if db.sov.targetDifference then
+			if bar.guid ~= self.targetGUID then
+				bar:SetAlpha(self.sovNonTargetAlpha)
+			else
+				bar:SetAlpha(1)
+			end
 		end
+		bar.cooldown:SetCooldown(bar.start, bar.duration)
 	else
-		bar:SetAlpha(1)
-	end
-	
-	local width, height
-	width = opt.width - opt.height
-	height = opt.height
-	
-	local progress = width * remaining / bar.duration - width
-	local texture = bar.texture
-	texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
-	
-	bar.labelTimer:SetText(floor(remaining + 0.5))
+		-- alpha difference in targeted units
+		if db.sov.targetDifference then
+			if bar.guid == self.targetGUID then
+				bar.texture:SetVertexColor(unpack(opt.color))
+				bar.bgtexture:SetAlpha(0.5)
+			else
+				bar.texture:SetVertexColor(unpack(opt.colorNonTarget))
+				bar.bgtexture:SetAlpha(self.sovNonTargetAlpha)
+			end
+		end
+		
+		local width, height
+		width = opt.width - opt.height
+		height = opt.height
+		
+		local progress = width * remaining / bar.duration - width
+		local texture = bar.texture
+		texture:SetPoint("RIGHT", bar, "RIGHT", progress, 0)
+		
+		bar.labelTimer:SetText(floor(remaining + 0.5))
+	end	
 end
 
 -- updates everything
@@ -1321,24 +1339,27 @@ function clcret:UpdateSovBarsLayout()
 	local opt = db.sov
 	local bar, fontFace, fontFlags
 	
-	clcretSovAnchor:SetWidth(opt.width)
-	clcretSovAnchor:SetHeight(opt.height)
-	clcretSovAnchor:ClearAllPoints()
-	clcretSovAnchor:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	_, _, _, self.sovNonTargetAlpha = unpack(db.sov.colorNonTarget)
+	self.sovNonTargetAlpha = 0.5 * self.sovNonTargetAlpha
+	
+	if opt.useButtons then
+		clcretSovAnchor:SetWidth(opt.height)
+		clcretSovAnchor:SetHeight(opt.height)
+		clcretSovAnchor:ClearAllPoints()
+		clcretSovAnchor:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	else
+		clcretSovAnchor:SetWidth(opt.width)
+		clcretSovAnchor:SetHeight(opt.height)
+		clcretSovAnchor:ClearAllPoints()
+		clcretSovAnchor:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	end
 	
 	for i = 1, MAX_SOVBARS do
 		bar = sovBars[i]
-					
-		bar:SetWidth(opt.width - opt.height)
-		bar:SetHeight(opt.height)
-		bar:ClearAllPoints()
-		if opt.growUp then
-			bar:SetPoint("BOTTOM", clcretSovAnchor, "BOTTOM", opt.height / 2, (i - 1) * opt.height)
-		else
-			bar:SetPoint("TOP", clcretSovAnchor, "TOP", opt.height / 2, (1 - i) * opt.height)
-		end
-		
 		bar.texture:SetVertexColor(unpack(db.sov.color))
+		bar:SetAlpha(1)
+		bar.texture:SetVertexColor(unpack(opt.color))
+		bar.bgtexture:SetAlpha(0.5)
 		
 		bar.icon:SetWidth(opt.height)
 		bar.icon:SetHeight(opt.height)
@@ -1349,8 +1370,68 @@ function clcret:UpdateSovBarsLayout()
 		bar.label:SetHeight(max(5, opt.height - 5))
 		bar.labelTimer:SetFont(fontFace, max(5, opt.height - 3), fontFlags)
 		
-		fontFace, _, fontFlags = bar.labelStack:GetFont()
-		bar.labelStack:SetFont(fontFace, max(5, opt.height - 2), fontFlags)
+		bar:ClearAllPoints()
+		bar.icon:ClearAllPoints()
+		bar.labelStack:ClearAllPoints()
+		if opt.useButtons then
+			-- positioning
+			if opt.growth == "up" then
+				bar:SetPoint("BOTTOM", clcretSovAnchor, "BOTTOM", 0, (i - 1) * (opt.height + opt.spacing))
+			elseif opt.growth == "left" then
+				bar:SetPoint("LEFT", clcretSovAnchor, "LEFT", (1 - i) * (opt.height + opt.spacing), 0)
+			elseif opt.growth == "right" then
+				bar:SetPoint("RIGHT", clcretSovAnchor, "RIGHT", (i - 1) * (opt.height + opt.spacing), 0)
+			else
+				bar:SetPoint("TOP", clcretSovAnchor, "TOP", 0, (1 - i) * (opt.height + opt.spacing) )
+			end
+			
+			bar:SetWidth(opt.height)
+			bar:SetHeight(opt.height)
+			
+			bar.icon:SetPoint("CENTER", bar, "CENTER", 0, 0)
+			bar.labelStack:SetPoint("BOTTOMRIGHT", bar.icon, "BOTTOMRIGHT", 3, -3)
+			
+			fontFace, _, fontFlags = bar.labelStack:GetFont()
+			bar.labelStack:SetFont(fontFace, max(5, opt.height / 2), fontFlags)
+			
+			-- hide bar stuff
+			bar.texture:Hide()
+			bar.bgtexture:Hide()
+			bar.label:Hide()
+			bar.labelTimer:Hide()
+			
+			-- show cooldown
+			bar.cooldown:Show()
+		else
+			-- positioning
+			if opt.growth == "up" then
+				bar:SetPoint("BOTTOM", clcretSovAnchor, "BOTTOM", opt.height / 2, (i - 1) * (opt.height + opt.spacing))
+			elseif opt.growth == "left" then
+				bar:SetPoint("LEFT", clcretSovAnchor, "LEFT", (1 - i) * (opt.width + opt.spacing) + opt.height, 0)
+			elseif opt.growth == "right" then
+				bar:SetPoint("RIGHT", clcretSovAnchor, "RIGHT", (i - 1) * (opt.width + opt.spacing), 0)
+			else
+				bar:SetPoint("TOP", clcretSovAnchor, "TOP", opt.height / 2, (1 - i) * (opt.height + opt.spacing) )
+			end
+			
+			bar:SetWidth(opt.width - opt.height)
+			bar:SetHeight(opt.height)
+			
+			bar.icon:SetPoint("RIGHT", bar, "LEFT", 0, 0)
+			bar.labelStack:SetPoint("CENTER", bar.icon, "CENTER", 0, 0)
+			
+			fontFace, _, fontFlags = bar.labelStack:GetFont()
+			bar.labelStack:SetFont(fontFace, max(5, opt.height - 2), fontFlags)
+			
+			-- show bar stuff
+			bar.texture:Show()
+			bar.bgtexture:Show()
+			bar.label:Show()
+			bar.labelTimer:Show()
+			
+			-- hide cooldown
+			bar.cooldown:Hide()
+		end
 	end
 end
 
@@ -1385,7 +1466,6 @@ function clcret:CreateSovBar(index)
 	frame.icon = frame:CreateTexture(nil, "ARTWORK")
 	frame.icon:SetTexture(GetSpellTexture(sovTextureSpell))
 	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	frame.icon:SetPoint("RIGHT", frame, "LEFT", 0, 0)
 	
 	local fontFace, fontFlags
 	
@@ -1398,9 +1478,13 @@ function clcret:CreateSovBar(index)
 	frame.labelTimer = frame:CreateFontString(nil, "OVERLAY", "SystemFont_Shadow_Small")
 	frame.labelTimer:SetPoint("RIGHT", frame, "RIGHT", -1, 1)
 	
+	-- cooldown for button mode
+	frame.cooldown = CreateFrame("Cooldown", "$parentCooldown", frame)
+	frame.cooldown:SetAllPoints(frame)
+	frame.cooldown:Hide()
+	
 	-- stack
 	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-	frame.labelStack:SetPoint("CENTER", frame.icon)
 	
 	-- other vars used
 	frame.start = 0
