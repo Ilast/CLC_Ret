@@ -256,6 +256,7 @@ function clcret:InitOptions()
 							db.zoomIcons = val
 							clcret:UpdateSkillButtonsLayout()
 							clcret:UpdateAuraButtonsLayout()
+							clcret:UpdateSovBarsLayout()
 						end,
 					},
 					scale = {
@@ -340,6 +341,7 @@ function clcret:InitOptions()
 						set = function(info, val)
 							db.borderSize = val
 							clcret:UpdateBorders()
+							clcret:UpdateSovBarsLayout()
 						end,
 					},
 					borderColor = {
@@ -351,6 +353,7 @@ function clcret:InitOptions()
 						set = function(info, r, g, b, a)
 							db.borderColor = {r, g, b, a}
 							clcret:UpdateBorders()
+							clcret:UpdateSovBarsLayout()
 						end,
 					},
 				},

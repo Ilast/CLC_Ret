@@ -957,11 +957,11 @@ function clcret:UpdateBorder(button, size, color)
 	size = size or db.borderSize
 	color = color or db.borderColor
 
-	button.topBorder:SetWidth(bw)
+	button.topBorder:SetWidth(bw - 2 * size)
 	button.topBorder:SetHeight(size)
 	button.topBorder:SetVertexColor(unpack(color))
 	
-	button.bottomBorder:SetWidth(bw)
+	button.bottomBorder:SetWidth(bw - 2 * size)
 	button.bottomBorder:SetHeight(size)
 	button.bottomBorder:SetVertexColor(unpack(color))
 	
@@ -1075,28 +1075,24 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	-- top db.borderSize
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetWidth(size)
 	line:SetPoint("TOP", 0, 0)
 	button.topBorder = line
 	
 	-- bottom line
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetWidth(size)
 	line:SetPoint("BOTTOM", 0, 0)
 	button.bottomBorder = line
 	
 	-- left line
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetHeight(size)
 	line:SetPoint("LEFT", 0, 0)
 	button.leftBorder = line
 	
 	-- right line
 	line = button:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(BGTEX)
-	line:SetHeight(size)
 	line:SetPoint("RIGHT", 0, 0)
 	button.rightBorder = line
 	
@@ -1361,6 +1357,12 @@ function clcret:UpdateSovBarsLayout()
 		bar.texture:SetVertexColor(unpack(opt.color))
 		bar.bgtexture:SetAlpha(0.5)
 		
+		if db.zoomIcons then
+			bar.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+		else
+			bar.icon:SetTexCoord(0, 1, 0, 1)
+		end
+		
 		bar.icon:SetWidth(opt.height)
 		bar.icon:SetHeight(opt.height)
 		
@@ -1402,6 +1404,13 @@ function clcret:UpdateSovBarsLayout()
 			
 			-- show cooldown
 			bar.cooldown:Show()
+			
+			-- show and update borders
+			clcret:UpdateBorder(bar)
+			bar.topBorder:Show()
+			bar.bottomBorder:Show()
+			bar.leftBorder:Show()
+			bar.rightBorder:Show()
 		else
 			-- positioning
 			if opt.growth == "up" then
@@ -1431,6 +1440,12 @@ function clcret:UpdateSovBarsLayout()
 			
 			-- hide cooldown
 			bar.cooldown:Hide()
+			
+			-- hide border
+			bar.topBorder:Hide()
+			bar.bottomBorder:Hide()
+			bar.leftBorder:Hide()
+			bar.rightBorder:Hide()
 		end
 	end
 end
@@ -1465,7 +1480,6 @@ function clcret:CreateSovBar(index)
 	-- icon
 	frame.icon = frame:CreateTexture(nil, "ARTWORK")
 	frame.icon:SetTexture(GetSpellTexture(sovTextureSpell))
-	frame.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	
 	local fontFace, fontFlags
 	
@@ -1485,6 +1499,32 @@ function clcret:CreateSovBar(index)
 	
 	-- stack
 	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+	
+	-- borders for buttons
+	local line
+	-- top db.borderSize
+	line = frame:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetPoint("TOP", 0, 0)
+	frame.topBorder = line
+	
+	-- bottom line
+	line = frame:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetPoint("BOTTOM", 0, 0)
+	frame.bottomBorder = line
+	
+	-- left line
+	line = frame:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetPoint("LEFT", 0, 0)
+	frame.leftBorder = line
+	
+	-- right line
+	line = frame:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(BGTEX)
+	line:SetPoint("RIGHT", 0, 0)
+	frame.rightBorder = line
 	
 	-- other vars used
 	frame.start = 0
