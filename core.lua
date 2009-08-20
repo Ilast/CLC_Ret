@@ -2,7 +2,7 @@ local function bprint(s)
 	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
 
-clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0")
+clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0", "AceTimer-3.0")
 
 local MAX_AURAS = 10
 local MAX_SOVBARS = 5
@@ -100,7 +100,7 @@ clcret.defaults = {
 			"none",
 		},
 		
-		-- behaviour
+		-- behavior
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
 		manaCons = 0,
@@ -108,6 +108,7 @@ clcret.defaults = {
 		manaDP = 0,
 		manaDPPerc = 0,
 		gcdDpSs = 0,
+		delayedStart = 5,
 		
 		-- layout of the 2 skill button
 		layout = {
@@ -297,14 +298,9 @@ function clcret:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("clcretDB", self.defaults)
 	db = self.db.char
 
-	-- init the rest at first PLAYER_ENTERING_WORLD call
-	-- hopefuly talent data will be available
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", "Init")
+	self:ScheduleTimer("Init", db.delayedStart)
 end
 function clcret:Init()
-	-- unregister the event used
-	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-	
 	-- get player name for sov tracking 
 	playerName = UnitName("player")
 	

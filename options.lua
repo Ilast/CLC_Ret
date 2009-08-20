@@ -368,10 +368,10 @@ function clcret:InitOptions()
 				},
 			},
 			
-			-- behaviour
-			behaviour = {
+			-- behavior
+			behavior = {
 				order = 10,
-				name = "Behavior", -- bad english :((
+				name = "Behavior",
 				type = "group",
 				args = {
 					ups = {
@@ -399,6 +399,16 @@ function clcret:InitOptions()
 							db.updatesPerSecondAuras = val
 							self.scanFrequencyAuras = 1 / val
 						end,
+					},
+					delayedStart = {
+						order = 3,
+						type = "range",
+						name = "Delay start by (seconds)",
+						min = 0,
+						max = 30,
+						step = 1,
+						get = function(info) return db.delayedStart end,
+						set = function(info, val) db.delayedStart = val end,
 					},
 					manaCons = {
 						order = 5,
