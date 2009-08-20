@@ -371,7 +371,7 @@ function clcret:InitOptions()
 			-- behaviour
 			behaviour = {
 				order = 10,
-				name = "Behaviour",
+				name = "Behavior", -- bad english :((
 				type = "group",
 				args = {
 					ups = {
