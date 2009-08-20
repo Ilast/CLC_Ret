@@ -570,6 +570,7 @@ function clcret:InitOptions()
 						end
 						db.auras[i].enabled = val
 						if not val then clcret:AuraButtonHide(i) end
+						clcret:UpdateEnabledAuraButtons()
 					end,
 				},
 				spell = {
@@ -586,6 +587,8 @@ function clcret:InitOptions()
 							else
 								db.auras[i].data.spell = ""
 								db.auras[i].enabled = false
+								clcret:AuraButtonHide(i)
+								clcret:UpdateEnabledAuraButtons()
 								bprint("Not a valid spell name or id !")
 							end
 						-- item
@@ -596,6 +599,8 @@ function clcret:InitOptions()
 							else
 								db.auras[i].data.spell = ""
 								db.auras[i].enabled = false
+								clcret:AuraButtonHide(i)
+								clcret:UpdateEnabledAuraButtons()
 								bprint("Not a valid item name or id !")
 							end
 						else
@@ -616,6 +621,8 @@ function clcret:InitOptions()
 							if not GetSpellInfo(db.auras[i].data.spell) then
 								db.auras[i].data.spell = ""
 								db.auras[i].enabled = false
+								clcret:AuraButtonHide(i)
+								clcret:UpdateEnabledAuraButtons()
 								bprint("Not a valid spell name or id !")
 							end
 						-- item
@@ -623,6 +630,8 @@ function clcret:InitOptions()
 							if not GetItemInfo(db.auras[i].data.spell) then
 								db.auras[i].data.spell = ""
 								db.auras[i].enabled = false
+								clcret:AuraButtonHide(i)
+								clcret:UpdateEnabledAuraButtons()
 								bprint("Not a valid item name or id !")
 							end
 						end

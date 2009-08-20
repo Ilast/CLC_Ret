@@ -40,6 +40,8 @@ local dq = {
 local buttons = {}
 -- configurable buttons
 local auraButtons = {}
+local enabledAuraButtons
+local numEnabledAuraButtons 
 local auraIndex
 -- bars for sov tracking
 local sovBars = {}
@@ -270,12 +272,10 @@ local function OnUpdate(this, elapsed)
 	throttleAuras = throttleAuras + elapsed
 	if throttleAuras > clcret.scanFrequencyAuras then
 		throttleAuras = 0
-		for i = 1, MAX_AURAS do
-			if db.auras[i].enabled then
-				-- TODO: check docs to see how it's done properly
-				auraIndex = i
-				clcret[db.auras[i].data.exec]()
-			end
+		for i = 1, numEnabledAuraButtons do
+			-- TODO: check docs to see how it's done properly
+			auraIndex = enabledAuraButtons[i]
+			clcret[db.auras[auraIndex].data.exec]()
 		end
 	end
 	
@@ -319,6 +319,8 @@ function clcret:Init()
 	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
 	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
 	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
+	
+	self:UpdateEnabledAuraButtons()
 	
 	self:UpdateFCFS()
 	self:InitUI()
@@ -1553,3 +1555,14 @@ function clcret:ToggleSovTracking()
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
+-- update the used aura buttons to shorten the for
+function clcret:UpdateEnabledAuraButtons()
+	numEnabledAuraButtons = 0
+	enabledAuraButtons = {}
+	for i = 1, MAX_AURAS do
+		if db.auras[i].enabled then
+			numEnabledAuraButtons = numEnabledAuraButtons + 1
+			enabledAuraButtons[numEnabledAuraButtons] = i
+		end
+	end
+end
