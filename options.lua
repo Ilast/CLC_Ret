@@ -330,32 +330,6 @@ function clcret:InitOptions()
 						end,
 						values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
 					},
-					borderSize = {
-						order = 31,
-						type = "range",
-						name = "Border",
-						min = 1,
-						max = 15,
-						step = 1,
-						get = function(info) return db.borderSize end,
-						set = function(info, val)
-							db.borderSize = val
-							clcret:UpdateBorders()
-							clcret:UpdateSovBarsLayout()
-						end,
-					},
-					borderColor = {
-						order = 32,
-						type = "color",
-						name = "Border color",
-						hasAlpha = true,
-						get = function(info) return unpack(db.borderColor) end,
-						set = function(info, r, g, b, a)
-							db.borderColor = {r, g, b, a}
-							clcret:UpdateBorders()
-							clcret:UpdateSovBarsLayout()
-						end,
-					},
 				},
 			},
 			

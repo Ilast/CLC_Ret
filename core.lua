@@ -84,9 +84,12 @@ clcret.defaults = {
 		scale = 1,
 		alpha = 1,
 		show = "always",
-		borderSize = 2,
-		borderColor = {0, 0, 0, 1},
 		fullDisable = false,
+		
+		lbf = {
+			Skills = {},
+			Auras = {},
+		},
 		
 		-- fcfs
 		fcfs = {
@@ -150,6 +153,7 @@ clcret.defaults = {
 					size = 30,
 					x = 0,
 					y = 5,
+					alpha = 1,
 					point = "BOTTOMRIGHT",
 					pointParent = "BOTTOMLEFT",
 				},
@@ -169,6 +173,7 @@ clcret.defaults = {
 					size = 30,
 					x = -35,
 					y = 5,
+					alpha = 1,
 					point = "BOTTOMRIGHT",
 					pointParent = "BOTTOMLEFT",
 				},
@@ -188,6 +193,7 @@ clcret.defaults = {
 					size = 30,
 					x = 0,
 					y = 40,
+					alpha = 1,
 					point = "BOTTOMRIGHT",
 					pointParent = "BOTTOMLEFT",
 				},
@@ -208,6 +214,7 @@ clcret.defaults = {
 					size = 30,
 					x = -35,
 					y = 40,
+					alpha = 1,
 					point = "BOTTOMRIGHT",
 					pointParent = "BOTTOMLEFT",
 				},
@@ -247,6 +254,7 @@ for i = 5, MAX_AURAS do
 			size = 30,
 			x = 0,
 			y = 0,
+			alpha = 1,
 			point = "BOTTOM",
 			pointParent = "TOP",
 		},
@@ -304,6 +312,8 @@ function clcret:Init()
 	-- get player name for sov tracking 
 	playerName = UnitName("player")
 	
+	self.LBF = LibStub('LibButtonFacade', true)
+	
 	-- update rates
 	self.scanFrequency = 1 / db.updatesPerSecond
 	self.scanFrequencyAuras = 1 / db.updatesPerSecondAuras
@@ -326,6 +336,12 @@ function clcret:Init()
 	self:InitUI()
 	self:PLAYER_TALENT_UPDATE()
 	
+	if self.LBF then
+		self.LBF:RegisterSkinCallback('clcret', self.OnSkin, self)
+		self.LBF:Group("clcret", "Skills"):Skin(unpack(db.lbf.Skills))
+		self.LBF:Group("clcret", "Auras"):Skin(unpack(db.lbf.Auras))
+	end
+	
 	if not db.fullDisable then
 		self:RegisterEvent("PLAYER_TALENT_UPDATE")
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
@@ -344,6 +360,23 @@ function clcret:InitSpells()
 	for alias, data in pairs(self.spells) do
 		data.name = GetSpellInfo(data.id)
 	end
+end
+function clcret:OnSkin(skin, glossAlpha, gloss, group, _, colors)
+	local styleDB
+	if group == 'Skills' then
+		styleDB = db.lbf.Skills
+	elseif group == 'Auras' then
+		styleDB = db.lbf.Auras
+	end
+
+	if styleDB then
+		styleDB[1] = skin
+		styleDB[2] = glossAlpha
+		styleDB[3] = gloss
+		styleDB[4] = colors
+	end
+	
+	self:UpdateAuraButtonsLayout()
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
@@ -876,21 +909,37 @@ function clcret:CenterHorizontally()
 	self:UpdateFrameSettings()
 end
 
--- update size, width, position, alpha for main buttons 
+-- update for aura buttons 
 function clcret:UpdateSkillButtonsLayout()
 	clcretFrame:SetWidth(db.layout.button1.size + 10)
 	clcretFrame:SetHeight(db.layout.button1.size + 10)
 	
 	for i = 1, 2 do
-		local button = buttons[i]
-		local opt = db.layout["button" .. i]
-		button:SetWidth(opt.size)
-		button:SetHeight(opt.size)
-		button:SetAlpha(opt.alpha)
-		button:ClearAllPoints()
-		button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
-		self:UpdateBorder(button)
-		
+		self:UpdateButtonLayout(buttons[i], db.layout["button" .. i])
+	end
+end
+-- update aura buttons 
+function clcret:UpdateAuraButtonsLayout()
+	for i = 1, MAX_AURAS do
+		self:UpdateButtonLayout(auraButtons[i], db.auras[i].layout)
+	end
+end
+-- update aura for a single button (tmp use in options)
+function clcret:UpdateAuraButtonLayout(index)
+	self:UpdateButtonLayout(auraButtons[index], db.auras[index].layout)
+end
+-- update a given button
+function clcret:UpdateButtonLayout(button, opt)
+	button:SetScale(opt.size / button.defaultSize)
+	button:ClearAllPoints()
+	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	button:SetAlpha(opt.alpha)
+	
+	local fontFace, _, fontFlags = button.stack:GetFont()
+	button.stack:SetFont(fontFace, opt.size / 1.7 , fontFlags)
+	button.stack:SetPoint("BOTTOMRIGHT", 2, -1)
+	
+	if not self.LBF then
 		if db.zoomIcons then
 			button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 		else
@@ -899,67 +948,12 @@ function clcret:UpdateSkillButtonsLayout()
 	end
 end
 
-function clcret:UpdateAuraButtonsLayout()
-	for i = 1, MAX_AURAS do
-		self:UpdateAuraButtonLayout(i)
-	end
-end
--- update size, width, position for aura buttons
-function clcret:UpdateAuraButtonLayout(index)
-	local button = auraButtons[index]
-	local opt = db.auras[index].layout
-	button:SetWidth(opt.size)
-	button:SetHeight(opt.size)
-	button:ClearAllPoints()
-	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
-	self:UpdateBorder(button)
-	if db.zoomIcons then
-		button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-	else
-		button.texture:SetTexCoord(0, 1, 0, 1)
-	end
-end
 
 -- update scale, alpha, position for main frame
 function clcret:UpdateFrameSettings()
 	self.frame:SetScale(db.scale)
 	self.frame:SetAlpha(db.alpha)
 	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
-end
-
--- update border for a single button
-function clcret:UpdateBorder(button, size, color)
-	local bw = button:GetWidth()
-	size = size or db.borderSize
-	color = color or db.borderColor
-
-	button.topBorder:SetWidth(bw - 2 * size)
-	button.topBorder:SetHeight(size)
-	button.topBorder:SetVertexColor(unpack(color))
-	
-	button.bottomBorder:SetWidth(bw - 2 * size)
-	button.bottomBorder:SetHeight(size)
-	button.bottomBorder:SetVertexColor(unpack(color))
-	
-	button.leftBorder:SetWidth(size)
-	button.leftBorder:SetHeight(bw)
-	button.leftBorder:SetVertexColor(unpack(color))
-	
-	button.rightBorder:SetWidth(size)
-	button.rightBorder:SetHeight(bw)
-	button.rightBorder:SetVertexColor(unpack(color))
-end
-
-
--- update borders size and colors
-function clcret:UpdateBorders()
-	for i=1, 2 do
-		self:UpdateBorder(buttons[i])
-	end
-	
-	for i=1, MAX_AURAS do
-		self:UpdateBorder(auraButtons[i])
-	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
@@ -998,14 +992,11 @@ function clcret:InitUI()
 	local opt
 	for i = 1, 2 do
 		opt = db.layout["button" .. i]
-		buttons[i] = self:CreateButton("B2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+		buttons[i] = self:CreateButton("SB" .. i, opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills")
 		buttons[i]:SetAlpha(opt.alpha)
 		buttons[i]:Show()
 	end
 	self:InitAuraButtons()
-	
-	-- update the borders
-	self:UpdateBorders()
 	
 	-- set scale
 	frame:SetScale(db.scale)
@@ -1021,7 +1012,7 @@ function clcret:InitAuraButtons()
 	for i = 1, 10 do
 		data = db.auras[i].data
 		layout = db.auras[i].layout
-		auraButtons[i] = self:CreateButton("aura"..i, layout.size, layout.point, clcretFrame, layout.pointParent, layout.x, layout.y, true)
+		auraButtons[i] = self:CreateButton("aura"..i, layout.size, layout.point, clcretFrame, layout.pointParent, layout.x, layout.y, "Auras")
 		auraButtons[i].start = 0
 		auraButtons[i].duration = 0
 		auraButtons[i].expirationTime = 0
@@ -1030,62 +1021,31 @@ function clcret:InitAuraButtons()
 end
 
 -- create button
-function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, hasStack)
-	local button = CreateFrame("Frame", "clcret"..name, parent)
-	button:SetWidth(size)
-	button:SetHeight(size)
+function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, bfGroup)
+	name = "clcret" .. name
+	local button =  CreateFrame("CheckButton", name , parent, "ActionButtonTemplate")
+	button:EnableMouse(false)
+	button.defaultSize = button:GetWidth()
+	button:SetScale(size / button.defaultSize)
 	button:SetPoint(point, parent, pointParent, offsetx, offsety)
 	
-	local texture = button:CreateTexture(nil,"BACKGROUND")
-	texture:SetAllPoints(button)
-	texture:SetTexture(BGTEX)
-	if db.zoomIcons then
-		texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-	end
-	button.texture = texture
+	button.texture = _G[name .. "Icon"]
+	button.texture:SetTexture(BGTEX)
+	button.cooldown = _G[name .. "Cooldown"]
+	button.stack = _G[name .. "Count"]
 	
-	-- create border
-	-- not all dimensions are shown, some are updated in the next step
+	local fontFace, _, fontFlags = button.stack:GetFont()
+	button.stack:SetFont(fontFace, size / 1.7 , fontFlags)
+	button.stack:SetPoint("BOTTOMRIGHT", 2, -1)
+	button.stack:SetParent(button.cooldown)
 	
-	local line
-	-- top db.borderSize
-	line = button:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("TOP", 0, 0)
-	button.topBorder = line
-	
-	-- bottom line
-	line = button:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("BOTTOM", 0, 0)
-	button.bottomBorder = line
-	
-	-- left line
-	line = button:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("LEFT", 0, 0)
-	button.leftBorder = line
-	
-	-- right line
-	line = button:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("RIGHT", 0, 0)
-	button.rightBorder = line
-	
-	local cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
-	cooldown:SetAllPoints(button)
-	button.cooldown = cooldown
-	
-	if hasStack then
-		local stack = cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-		local fontFace, _, fontFlags = stack:GetFont()
-		stack:SetFont(fontFace, 15, fontFlags)
-		stack:SetPoint("BOTTOMRIGHT", 3, -3)
-		stack:Hide()
-		button.stack = stack
+	if self.LBF then
+		self.LBF:Group("clcret", bfGroup):AddButton(button)
+	elseif db.zoomIcons then
+		button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 	end
 	
-	button:Hide()	
+	button:Hide()
 	return button
 end
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -1381,13 +1341,6 @@ function clcret:UpdateSovBarsLayout()
 			
 			-- show cooldown
 			bar.cooldown:Show()
-			
-			-- show and update borders
-			clcret:UpdateBorder(bar)
-			bar.topBorder:Show()
-			bar.bottomBorder:Show()
-			bar.leftBorder:Show()
-			bar.rightBorder:Show()
 		else
 			-- positioning
 			if opt.growth == "up" then
@@ -1417,12 +1370,6 @@ function clcret:UpdateSovBarsLayout()
 			
 			-- hide cooldown
 			bar.cooldown:Hide()
-			
-			-- hide border
-			bar.topBorder:Hide()
-			bar.bottomBorder:Hide()
-			bar.leftBorder:Hide()
-			bar.rightBorder:Hide()
 		end
 	end
 end
@@ -1475,32 +1422,6 @@ function clcret:CreateSovBar(index)
 	
 	-- stack
 	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
-	
-	-- borders for buttons
-	local line
-	-- top db.borderSize
-	line = frame:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("TOP", 0, 0)
-	frame.topBorder = line
-	
-	-- bottom line
-	line = frame:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("BOTTOM", 0, 0)
-	frame.bottomBorder = line
-	
-	-- left line
-	line = frame:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("LEFT", 0, 0)
-	frame.leftBorder = line
-	
-	-- right line
-	line = frame:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(BGTEX)
-	line:SetPoint("RIGHT", 0, 0)
-	frame.rightBorder = line
 	
 	-- other vars used
 	frame.start = 0
