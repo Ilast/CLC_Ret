@@ -79,6 +79,7 @@ clcret.defaults = {
 	char = {
 		-- layout settings for the main frame (the black box you toggle on and off)\
 		zoomIcons = true,
+		noBorder = false,
 		x = 500,
 		y = 300,
 		scale = 1,
@@ -377,6 +378,7 @@ function clcret:OnSkin(skin, glossAlpha, gloss, group, _, colors)
 	end
 	
 	self:UpdateAuraButtonsLayout()
+	self:UpdateSkillButtonsLayout()
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
@@ -930,21 +932,25 @@ function clcret:UpdateAuraButtonLayout(index)
 end
 -- update a given button
 function clcret:UpdateButtonLayout(button, opt)
-	button:SetScale(opt.size / button.defaultSize)
+	local scale = opt.size / button.defaultSize
+	button:SetScale(scale)
 	button:ClearAllPoints()
-	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x / scale, opt.y / scale)
 	button:SetAlpha(opt.alpha)
 	
-	local fontFace, _, fontFlags = button.stack:GetFont()
-	button.stack:SetFont(fontFace, opt.size / 1.7 , fontFlags)
-	button.stack:SetPoint("BOTTOMRIGHT", 2, -1)
+	button.stack:ClearAllPoints()
+	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, 0)
 	
-	if not self.LBF then
-		if db.zoomIcons then
-			button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
-		else
-			button.texture:SetTexCoord(0, 1, 0, 1)
-		end
+	if db.zoomIcons then
+		button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	else
+		button.texture:SetTexCoord(0, 1, 0, 1)
+	end
+	
+	if db.noBorder then
+		button.normalTexture:Hide()
+	else
+		button.normalTexture:Show()
 	end
 end
 
@@ -1023,26 +1029,38 @@ end
 -- create button
 function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, bfGroup)
 	name = "clcret" .. name
-	local button =  CreateFrame("CheckButton", name , parent, "ActionButtonTemplate")
+	local button =  CreateFrame("CheckButton", name , parent, "CLCRetButtonTemplate")
 	button:EnableMouse(false)
+	
 	button.defaultSize = button:GetWidth()
-	button:SetScale(size / button.defaultSize)
-	button:SetPoint(point, parent, pointParent, offsetx, offsety)
+	local scale = size / button.defaultSize
+	button:SetScale(scale)
+	button:ClearAllPoints()
+	button:SetPoint(point, parent, pointParent, offsetx / scale, offsety / scale)
 	
 	button.texture = _G[name .. "Icon"]
-	button.texture:SetTexture(BGTEX)
 	button.cooldown = _G[name .. "Cooldown"]
 	button.stack = _G[name .. "Count"]
+	button.normalTexture = _G[name .. "NormalTexture"]
 	
-	local fontFace, _, fontFlags = button.stack:GetFont()
-	button.stack:SetFont(fontFace, size / 1.7 , fontFlags)
-	button.stack:SetPoint("BOTTOMRIGHT", 2, -1)
+	button.texture:SetTexture(BGTEX)
+	
 	button.stack:SetParent(button.cooldown)
+	local fontFace, _, fontFlags = button.stack:GetFont()
+	button.stack:SetFont(fontFace, 18, fontFlags)
+	button.stack:ClearAllPoints()
+	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, 0)
 	
 	if self.LBF then
 		self.LBF:Group("clcret", bfGroup):AddButton(button)
-	elseif db.zoomIcons then
+	end
+	
+	if db.zoomIcons then
 		button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	end
+	
+	if db.noBorder then
+		button.normalTexture:Hide()
 	end
 	
 	button:Hide()

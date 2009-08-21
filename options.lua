@@ -259,6 +259,17 @@ function clcret:InitOptions()
 							clcret:UpdateSovBarsLayout()
 						end,
 					},
+					noBorder = {
+						order = 2,
+						type = "toggle",
+						name = "Hide border",
+						get = function(info) return db.noBorder end,
+						set = function(info, val)
+							db.noBorder = val
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+						end,
+					},
 					scale = {
 						order = 5,
 						type = "range",
@@ -450,8 +461,8 @@ function clcret:InitOptions()
 					order = 1,
 					type = "range",
 					name = "Size",
-					min = 0,
-					max = 100,
+					min = 1,
+					max = 300,
 					step = 1,
 					get = function(info) return db.layout["button" .. i].size end,
 					set = function(info, val)
@@ -639,8 +650,8 @@ function clcret:InitOptions()
 					order = 1,
 					type = "range",
 					name = "Size",
-					min = 0,
-					max = 100,
+					min = 1,
+					max = 300,
 					step = 1,
 					get = function(info) return db.auras[i].layout.size end,
 					set = function(info, val)
