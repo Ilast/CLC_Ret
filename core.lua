@@ -7,6 +7,7 @@ clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-
 local MAX_AURAS = 10
 local MAX_SOVBARS = 5
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
+local BORDERTEX = "Interface\\AddOns\\clcret\\textures\\border"
 
 -- cleanse spell name, used for gcd
 local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> 
@@ -80,6 +81,7 @@ clcret.defaults = {
 		-- layout settings for the main frame (the black box you toggle on and off)\
 		zoomIcons = true,
 		noBorder = false,
+		borderColor = {0, 0, 0, 1},
 		x = 500,
 		y = 300,
 		scale = 1,
@@ -937,9 +939,10 @@ function clcret:UpdateButtonLayout(button, opt)
 	button:ClearAllPoints()
 	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x / scale, opt.y / scale)
 	button:SetAlpha(opt.alpha)
+	button.border:SetVertexColor(unpack(db.borderColor))
 	
 	button.stack:ClearAllPoints()
-	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, 0)
+	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 4, 0)
 	
 	if db.zoomIcons then
 		button.texture:SetTexCoord(0.05, 0.95, 0.05, 0.95)
@@ -948,9 +951,9 @@ function clcret:UpdateButtonLayout(button, opt)
 	end
 	
 	if db.noBorder then
-		button.normalTexture:Hide()
+		button.border:Hide()
 	else
-		button.normalTexture:Show()
+		button.border:Show()
 	end
 end
 
@@ -1029,27 +1032,36 @@ end
 -- create button
 function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, bfGroup)
 	name = "clcret" .. name
-	local button =  CreateFrame("CheckButton", name , parent, "CLCRetButtonTemplate")
+	local button = CreateFrame("Button", name , parent)
 	button:EnableMouse(false)
+	
+	button:SetWidth(64)
+	button:SetHeight(64)
+	
+	button.texture = button:CreateTexture("$parentIcon", "BACKGROUND")
+	button.texture:SetAllPoints()
+	button.texture:SetTexture(BGTEX)
+	
+	button.border = button:CreateTexture(nil, "BACKGROUND") -- not $parentBorder so it can work when bf is enabled
+	button.border:SetAllPoints()
+	button.border:SetTexture(BORDERTEX)
+	button.border:SetVertexColor(unpack(db.borderColor))
+	
+	button.cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
+	button.cooldown:SetAllPoints(button)
+	
+	button.stack = button:CreateFontString("$parentCount", "HIGHLIGHT", "TextStatusBarText")
+	local fontFace, _, fontFlags = button.stack:GetFont()
+	button.stack:SetFont(fontFace, 30, fontFlags)
+	button.stack:SetJustifyH("RIGHT")
+	button.stack:ClearAllPoints()
+	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 4, 0)
 	
 	button.defaultSize = button:GetWidth()
 	local scale = size / button.defaultSize
 	button:SetScale(scale)
 	button:ClearAllPoints()
 	button:SetPoint(point, parent, pointParent, offsetx / scale, offsety / scale)
-	
-	button.texture = _G[name .. "Icon"]
-	button.cooldown = _G[name .. "Cooldown"]
-	button.stack = _G[name .. "Count"]
-	button.normalTexture = _G[name .. "NormalTexture"]
-	
-	button.texture:SetTexture(BGTEX)
-	
-	button.stack:SetParent(button.cooldown)
-	local fontFace, _, fontFlags = button.stack:GetFont()
-	button.stack:SetFont(fontFace, 18, fontFlags)
-	button.stack:ClearAllPoints()
-	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, 0)
 	
 	if self.LBF then
 		self.LBF:Group("clcret", bfGroup):AddButton(button)
@@ -1060,7 +1072,7 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	end
 	
 	if db.noBorder then
-		button.normalTexture:Hide()
+		button.border:Hide()
 	end
 	
 	button:Hide()
@@ -1359,6 +1371,12 @@ function clcret:UpdateSovBarsLayout()
 			
 			-- show cooldown
 			bar.cooldown:Show()
+			
+			-- show border
+			bar.border:SetAllPoints(bar)
+			bar.border:SetVertexColor(unpack(db.borderColor))
+			bar.border:Show()
+			
 		else
 			-- positioning
 			if opt.growth == "up" then
@@ -1388,6 +1406,9 @@ function clcret:UpdateSovBarsLayout()
 			
 			-- hide cooldown
 			bar.cooldown:Hide()
+			
+			-- hide border
+			bar.border:Hide()
 		end
 	end
 end
@@ -1408,20 +1429,24 @@ function clcret:CreateSovBar(index)
 	
 	local opt = db.sov
 	
-	-- texture
-	frame.texture = frame:CreateTexture(nil, "ARTWORK")
-	frame.texture:SetAllPoints()
-	frame.texture:SetTexture(BGTEX)
-	
 	-- background
 	frame.bgtexture = frame:CreateTexture(nil, "BACKGROUND")
 	frame.bgtexture:SetAllPoints()
 	frame.bgtexture:SetVertexColor(0, 0, 0, 0.5)
 	frame.bgtexture:SetTexture(BGTEX)
 	
+	-- texture
+	frame.texture = frame:CreateTexture(nil, "BACKGROUND")
+	frame.texture:SetAllPoints()
+	frame.texture:SetTexture(BGTEX)
+	
 	-- icon
-	frame.icon = frame:CreateTexture(nil, "ARTWORK")
+	frame.icon = frame:CreateTexture(nil, "BACKGROUND")
 	frame.icon:SetTexture(GetSpellTexture(sovTextureSpell))
+	
+	frame.border = frame:CreateTexture(nil, "BACKGROUND")
+	frame.border:SetTexture(BORDERTEX)
+	frame.border:Hide()
 	
 	local fontFace, fontFlags
 	
@@ -1439,7 +1464,7 @@ function clcret:CreateSovBar(index)
 	frame.cooldown:SetAllPoints(frame)
 	
 	-- stack
-	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+	frame.labelStack = frame.cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
 	
 	-- other vars used
 	frame.start = 0

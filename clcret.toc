@@ -6,6 +6,5 @@
 
 
 embeds.xml
-ButtonTemplate.xml
 core.lua
 options.lua

@@ -270,6 +270,19 @@ function clcret:InitOptions()
 							clcret:UpdateAuraButtonsLayout()
 						end,
 					},
+					borderColor = {
+						order = 3,
+						type = "color",
+						name = "Border color",
+						hasAlpha = true,
+						get = function(info) return unpack(db.borderColor) end,
+						set = function(info, r, g, b, a)
+							db.borderColor = {r, g, b, a}
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
 					scale = {
 						order = 5,
 						type = "range",
