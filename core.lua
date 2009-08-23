@@ -438,7 +438,9 @@ function clcret:EditQueue(args)
 	self:UpdateFCFS()
 	self:DisplayFCFS()
 	
-	InterfaceOptionsFrame_OpenToCategory("clcret")
+	if InterfaceOptionsFrame:IsVisible() then
+		InterfaceOptionsFrame_OpenToCategory("clcret")
+	end
 end
 
 -- update pq from fcfs
