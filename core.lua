@@ -29,6 +29,7 @@ end
 
 -- priority queue generated from fcfs
 local pq
+local ppq
 -- number of spells in the queue
 local numSpells
 -- display queue
@@ -73,14 +74,14 @@ clcret.spells = {
 	ss 		= { id = 53601 },		-- sacred shield
 }
 
--- prot abilities
-local ppq = {
-	{ alias = "sor", id = "53600" },	-- shield of righteousness
-	{ alias = "hotr", id = "53595" },	-- hammer of the righteous
-	{ alias = "hs", id = "20925" },		-- holy shield
-	{ alias = "cons", id = "48819" },	-- consecration
-	{ alias = "jol", id = "53408" },	-- judgement (using wisdom atm)
+clcret.protSpells = {
+	sor = { id = "53600" },			-- shield of righteousness
+	hotr = { id = "53595" },		-- hammer of the righteous
+	hs = { id = "20925" },			-- holy shield
+	cons = { id = "48819" },		-- consecration
+	jol = { id = "53408" },			-- judgement (using wisdom atm)
 }
+
 
 -- ---------------------------------------------------------------------------------------------------------------------
 -- DEFAULT VALUES
@@ -116,6 +117,15 @@ clcret.defaults = {
 			"none",
 			"none",
 			"none",
+		},
+		
+		-- prot fcfs
+		pfcfs = {
+			"sor",
+			"hotr",
+			"hs",
+			"cons",
+			"jol",
 		},
 		
 		-- behavior
@@ -376,9 +386,8 @@ function clcret:InitSpells()
 		data.name = GetSpellInfo(data.id)
 	end
 	
-	-- prot stuff
-	for i = 1, 5 do
-		ppq[i].name = GetSpellInfo(ppq[i].id)
+	for alias, data in pairs(self.protSpells) do
+		data.name = GetSpellInfo(data.id)
 	end
 end
 function clcret:OnSkin(skin, glossAlpha, gloss, group, _, colors)
@@ -468,6 +477,15 @@ function clcret:UpdateFCFS()
 		db.fullDisable = false
 		self:FullDisableToggle()
 	end
+	
+	
+	newpq = {}
+	-- prot stuff
+	for i = 1, 5 do
+		newpq[i] = { alias = db.pfcfs[i], name = self.protSpells[db.pfcfs[i]].name }
+	end
+	
+	ppq = newpq
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 

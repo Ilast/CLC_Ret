@@ -31,9 +31,285 @@ function clcret:InitOptions()
 	self.options = {
 		type = "group",
 		args = {
+			-- lock frame
+			lock = {
+				order = 1,
+				type = "toggle",
+				name = "Lock Frame",
+				get = function(info) return self.locked end,
+				set = function(info, val)
+					clcret:ToggleLock()
+				end,
+			},
+			
+			-- full disable toggle
+			fullDisable = {
+				order = 2,
+				type = "toggle",
+				name = "Addon disabled",
+				get = function(info) return db.fullDisable end,
+				set = function(info, val) clcret:FullDisableToggle() end,
+			},
+			-- full disable toggle
+			protEnabled = {
+				order = 3,
+				type = "toggle",
+				name = "Enable prot module",
+				get = function(info) return db.protEnabled end,
+				set = function(info, val)
+					db.protEnabled = val
+					clcret:PLAYER_TALENT_UPDATE()
+				end,
+			},
+		
+			-- appearance
+			appearance = {
+				order = 10,
+				name = "Appearance",
+				type = "group",
+				args = {
+					zoomIcons = {
+						order = 1,
+						type = "toggle",
+						name = "Zoomed icons",
+						get = function(info) return db.zoomIcons end,
+						set = function(info, val)
+							db.zoomIcons = val
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					noBorder = {
+						order = 2,
+						type = "toggle",
+						name = "Hide border",
+						get = function(info) return db.noBorder end,
+						set = function(info, val)
+							db.noBorder = val
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+						end,
+					},
+					borderColor = {
+						order = 3,
+						type = "color",
+						name = "Border color",
+						hasAlpha = true,
+						get = function(info) return unpack(db.borderColor) end,
+						set = function(info, r, g, b, a)
+							db.borderColor = {r, g, b, a}
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+							clcret:UpdateSovBarsLayout()
+						end,
+					},
+					scale = {
+						order = 5,
+						type = "range",
+						name = "Scale",
+						min = 0,
+						max = 3,
+						step = 0.01,
+						get = function(info) return db.scale end,
+						set = function(info, val)
+							db.scale = val
+							clcret:UpdateFrameSettings()
+						end,
+					},
+					alpha = {
+						order = 7,
+						type = "range",
+						name = "Alpha",
+						min = 0,
+						max = 1,
+						step = 0.001,
+						get = function(info) return db.alpha end,
+						set = function(info, val)
+							db.alpha = val
+							clcret:UpdateFrameSettings()
+						end,
+					},
+					x = {
+						order = 10,
+						type = "range",
+						name = "X",
+						min = 0,
+						max = 5000,
+						step = 1,
+						get = function(info) return db.x end,
+						set = function(info, val)
+							db.x = val
+							clcret:UpdateFrameSettings()
+						end,
+					},
+					y = {
+						order = 11,
+						type = "range",
+						name = "Y",
+						min = 0,
+						max = 3000,
+						step = 1,
+						get = function(info) return db.y end,
+						set = function(info, val)
+							db.y = val
+							clcret:UpdateFrameSettings()
+						end,
+					},
+					align = {
+						order = 12,
+						type = "execute",
+						name = "Center Horizontally",
+						func = function()
+							clcret:CenterHorizontally()
+						end,
+					},
+					show = {
+						order = 20,
+						type = "select",
+						name = "Show",
+						get = function(info) return db.show end,
+						set = function(info, val)
+							db.show = val
+							clcret:UpdateShowMethod()
+						end,
+						values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
+					},
+				},
+			},
+		
+			-- behavior
+			behavior = {
+				order = 15,
+				name = "Behavior",
+				type = "group",
+				args = {
+					ups = {
+						order = 1,
+						type = "range",
+						name = "Updates per second",
+						min = 1,
+						max = 100,
+						step = 1,
+						get = function(info) return db.updatesPerSecond end,
+						set = function(info, val)
+							db.updatesPerSecond = val
+							self.scanFrequency = 1 / val
+						end,
+					},
+					upsAuras = {
+						order = 2,
+						type = "range",
+						name = "Updates per second for Aura Buttons",
+						min = 1,
+						max = 100,
+						step = 1,
+						get = function(info) return db.updatesPerSecondAuras end,
+						set = function(info, val)
+							db.updatesPerSecondAuras = val
+							self.scanFrequencyAuras = 1 / val
+						end,
+					},
+					delayedStart = {
+						order = 3,
+						type = "range",
+						name = "Delay start by (seconds)",
+						min = 0,
+						max = 30,
+						step = 1,
+						get = function(info) return db.delayedStart end,
+						set = function(info, val) db.delayedStart = val end,
+					},
+					manaCons = {
+						order = 5,
+						type = "range",
+						name = "Minimum mana for Consecration",
+						min = 0,
+						max = 10000,
+						step = 1,
+						get = function(info) return db.manaCons end,
+						set = function(info, val) db.manaCons = val end,
+					},
+					manaConsPerc = {
+						order = 6,
+						type = "range",
+						name = "% Minimum mana for Consecration",
+						min = 0,
+						max = 100,
+						step = 1,
+						get = function(info) return db.manaConsPerc end,
+						set = function(info, val) db.manaConsPerc = val end,
+					},
+					manaDP = {
+						order = 10,
+						type = "range",
+						name = "Maximum mana for Divine Plea",
+						min = 0,
+						max = 10000,
+						step = 1,
+						get = function(info) return db.manaDP end,
+						set = function(info, val) db.manaDP = val end,
+					},
+					manaDPPerc = {
+						order = 11,
+						type = "range",
+						name = "% Maximum mana for Divine Plea",
+						min = 0,
+						max = 100,
+						step = 1,
+						get = function(info) return db.manaDPPerc end,
+						set = function(info, val) db.manaDPPerc = val end,
+					},
+					gcdDpSs = {
+						order = 30,
+						type = "range",
+						min = 0,
+						max = 2,
+						step = 0.1,
+						name = "Extra delay for DP and SS",
+						get = function(info) return db.gcdDpSs end,
+						set = function(info, val) db.gcdDpSs = val end,
+					},
+				},
+			},
+			
+			
+			-- fcfs edit
+			fcfs = {
+				order = 10,
+				name = "FCFS",
+				type = "group",
+				args = {},
+			},
+			
+			-- prot fcfs
+			pfcfs = {
+				order = 11,
+				name = "ProtFCFS",
+				type = "group",
+				args = {},
+			},
+			
+						-- aura buttons
+			auras = {
+				order = 30,
+				name = "Aura Buttons",
+				type = "group",
+				args = {},
+			},
+		
+			-- layout
+			layout = {
+				order = 31,
+				name = "Layout",
+				type = "group",
+				args = {},
+			},
+			
+			
 			-- sov tracking
 			sov = {
-				order = 20,
+				order = 40,
 				name = "SoV Tracking",
 				type = "group",
 				args = {
@@ -205,273 +481,7 @@ function clcret:InitOptions()
 					},
 				},
 			},
-		
-			-- layout
-			layout = {
-				order = 15,
-				name = "Layout",
-				type = "group",
-				args = {},
-			},
-			
-			auras = {
-				order = 8,
-				name = "Aura Buttons",
-				type = "group",
-				args = {},
-			},
-		
-			-- lock frame
-			lock = {
-				order = 1,
-				type = "toggle",
-				name = "Lock Frame",
-				get = function(info) return self.locked end,
-				set = function(info, val)
-					clcret:ToggleLock()
-				end,
-			},
-			
-			-- full disable toggle
-			fullDisable = {
-				order = 2,
-				type = "toggle",
-				name = "Addon disabled",
-				get = function(info) return db.fullDisable end,
-				set = function(info, val) clcret:FullDisableToggle() end,
-			},
-			-- full disable toggle
-			protEnabled = {
-				order = 3,
-				type = "toggle",
-				name = "Enable prot module",
-				get = function(info) return db.protEnabled end,
-				set = function(info, val)
-					db.protEnabled = val
-					clcret:PLAYER_TALENT_UPDATE()
-				end,
-			},
-			
-			-- appearance
-			appearance = {
-				order = 5,
-				name = "Appearance",
-				type = "group",
-				args = {
-					zoomIcons = {
-						order = 1,
-						type = "toggle",
-						name = "Zoomed icons",
-						get = function(info) return db.zoomIcons end,
-						set = function(info, val)
-							db.zoomIcons = val
-							clcret:UpdateSkillButtonsLayout()
-							clcret:UpdateAuraButtonsLayout()
-							clcret:UpdateSovBarsLayout()
-						end,
-					},
-					noBorder = {
-						order = 2,
-						type = "toggle",
-						name = "Hide border",
-						get = function(info) return db.noBorder end,
-						set = function(info, val)
-							db.noBorder = val
-							clcret:UpdateSkillButtonsLayout()
-							clcret:UpdateAuraButtonsLayout()
-						end,
-					},
-					borderColor = {
-						order = 3,
-						type = "color",
-						name = "Border color",
-						hasAlpha = true,
-						get = function(info) return unpack(db.borderColor) end,
-						set = function(info, r, g, b, a)
-							db.borderColor = {r, g, b, a}
-							clcret:UpdateSkillButtonsLayout()
-							clcret:UpdateAuraButtonsLayout()
-							clcret:UpdateSovBarsLayout()
-						end,
-					},
-					scale = {
-						order = 5,
-						type = "range",
-						name = "Scale",
-						min = 0,
-						max = 3,
-						step = 0.01,
-						get = function(info) return db.scale end,
-						set = function(info, val)
-							db.scale = val
-							clcret:UpdateFrameSettings()
-						end,
-					},
-					alpha = {
-						order = 7,
-						type = "range",
-						name = "Alpha",
-						min = 0,
-						max = 1,
-						step = 0.001,
-						get = function(info) return db.alpha end,
-						set = function(info, val)
-							db.alpha = val
-							clcret:UpdateFrameSettings()
-						end,
-					},
-					x = {
-						order = 10,
-						type = "range",
-						name = "X",
-						min = 0,
-						max = 5000,
-						step = 1,
-						get = function(info) return db.x end,
-						set = function(info, val)
-							db.x = val
-							clcret:UpdateFrameSettings()
-						end,
-					},
-					y = {
-						order = 11,
-						type = "range",
-						name = "Y",
-						min = 0,
-						max = 3000,
-						step = 1,
-						get = function(info) return db.y end,
-						set = function(info, val)
-							db.y = val
-							clcret:UpdateFrameSettings()
-						end,
-					},
-					align = {
-						order = 12,
-						type = "execute",
-						name = "Center Horizontally",
-						func = function()
-							clcret:CenterHorizontally()
-						end,
-					},
-					show = {
-						order = 20,
-						type = "select",
-						name = "Show",
-						get = function(info) return db.show end,
-						set = function(info, val)
-							db.show = val
-							clcret:UpdateShowMethod()
-						end,
-						values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
-					},
-				},
-			},
-			
-			-- fcfs edit
-			fcfs = {
-				order = 7,
-				name = "FCFS",
-				type = "group",
-				args = {
-				},
-			},
-			
-			-- behavior
-			behavior = {
-				order = 10,
-				name = "Behavior",
-				type = "group",
-				args = {
-					ups = {
-						order = 1,
-						type = "range",
-						name = "Updates per second",
-						min = 1,
-						max = 100,
-						step = 1,
-						get = function(info) return db.updatesPerSecond end,
-						set = function(info, val)
-							db.updatesPerSecond = val
-							self.scanFrequency = 1 / val
-						end,
-					},
-					upsAuras = {
-						order = 2,
-						type = "range",
-						name = "Updates per second for Aura Buttons",
-						min = 1,
-						max = 100,
-						step = 1,
-						get = function(info) return db.updatesPerSecondAuras end,
-						set = function(info, val)
-							db.updatesPerSecondAuras = val
-							self.scanFrequencyAuras = 1 / val
-						end,
-					},
-					delayedStart = {
-						order = 3,
-						type = "range",
-						name = "Delay start by (seconds)",
-						min = 0,
-						max = 30,
-						step = 1,
-						get = function(info) return db.delayedStart end,
-						set = function(info, val) db.delayedStart = val end,
-					},
-					manaCons = {
-						order = 5,
-						type = "range",
-						name = "Minimum mana for Consecration",
-						min = 0,
-						max = 10000,
-						step = 1,
-						get = function(info) return db.manaCons end,
-						set = function(info, val) db.manaCons = val end,
-					},
-					manaConsPerc = {
-						order = 6,
-						type = "range",
-						name = "% Minimum mana for Consecration",
-						min = 0,
-						max = 100,
-						step = 1,
-						get = function(info) return db.manaConsPerc end,
-						set = function(info, val) db.manaConsPerc = val end,
-					},
-					manaDP = {
-						order = 10,
-						type = "range",
-						name = "Maximum mana for Divine Plea",
-						min = 0,
-						max = 10000,
-						step = 1,
-						get = function(info) return db.manaDP end,
-						set = function(info, val) db.manaDP = val end,
-					},
-					manaDPPerc = {
-						order = 11,
-						type = "range",
-						name = "% Maximum mana for Divine Plea",
-						min = 0,
-						max = 100,
-						step = 1,
-						get = function(info) return db.manaDPPerc end,
-						set = function(info, val) db.manaDPPerc = val end,
-					},
-					gcdDpSs = {
-						order = 30,
-						type = "range",
-						min = 0,
-						max = 2,
-						step = 0.1,
-						name = "Extra delay for DP and SS",
-						get = function(info) return db.gcdDpSs end,
-						set = function(info, val) db.gcdDpSs = val end,
-					},
-				},
-			}
-		}
+		},
 	}
 	
 		-- add main buttons to layout
@@ -741,14 +751,39 @@ function clcret:InitOptions()
 			name = "",
 			type = "select",
 			order = i,
-			get = function(info)
-				return db.fcfs[i]
-			end,
+			get = function(info) return db.fcfs[i] end,
 			set = function(info, val)
 				db.fcfs[i] = val
 				clcret:UpdateFCFS()
 			end,
 			values = GetSpellChoice,
+		}
+	end
+	
+	root = self.options.args.pfcfs.args
+	for i = 1, 2 do
+		root["p" .. i] = {
+			name = "6",
+			type = "select",
+			get = function(info) return db.pfcfs[i] end,
+			set = function(info, val)
+				db.pfcfs[i] = val
+				clcret:UpdateFCFS()
+			end,
+			values = { sor = clcret.protSpells["sor"].name, hotr = clcret.protSpells["hotr"].name }
+		}
+	end
+	
+	for i = 3, 5 do
+		root["p" .. i] = {
+			name = "9",
+			type = "select",
+			get = function(info) return db.pfcfs[i] end,
+			set = function(info, val)
+				db.pfcfs[i] = val
+				clcret:UpdateFCFS()
+			end,
+			values = { hs = clcret.protSpells["hs"].name, cons = clcret.protSpells["cons"].name, jol = clcret.protSpells["jol"].name }
 		}
 	end
 end
