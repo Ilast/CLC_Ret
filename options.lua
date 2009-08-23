@@ -215,7 +215,7 @@ function clcret:InitOptions()
 			},
 			
 			auras = {
-				order = 7,
+				order = 8,
 				name = "Aura Buttons",
 				type = "group",
 				args = {},
@@ -240,10 +240,21 @@ function clcret:InitOptions()
 				get = function(info) return db.fullDisable end,
 				set = function(info, val) clcret:FullDisableToggle() end,
 			},
+			-- full disable toggle
+			protEnabled = {
+				order = 3,
+				type = "toggle",
+				name = "Enable prot module",
+				get = function(info) return db.protEnabled end,
+				set = function(info, val)
+					db.protEnabled = val
+					clcret:PLAYER_TALENT_UPDATE()
+				end,
+			},
 			
 			-- appearance
 			appearance = {
-				order = 3,
+				order = 5,
 				name = "Appearance",
 				type = "group",
 				args = {
@@ -359,7 +370,7 @@ function clcret:InitOptions()
 			
 			-- fcfs edit
 			fcfs = {
-				order = 5,
+				order = 7,
 				name = "FCFS",
 				type = "group",
 				args = {

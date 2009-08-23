@@ -63,14 +63,23 @@ local playerName
 
 -- the spells used in fcfs
 clcret.spells = {
-	how		= { id = 48806 },
-	cs 		= { id = 35395 },
-	ds 		= { id = 53385 },
-	jol 	= { id = 53408 },		-- jow
-	cons 	= { id = 48819 },
-	exo 	= { id = 48801 },
-	dp 		= { id = 54428 },
-	ss 		= { id = 53601 },
+	how		= { id = 48806 },		-- hammer of wrath
+	cs 		= { id = 35395 },		-- crusader strike
+	ds 		= { id = 53385 },		-- divine storm
+	jol 	= { id = 53408 },		-- judgement (using wisdom atm)
+	cons 	= { id = 48819 },		-- consecration
+	exo 	= { id = 48801 },		-- exorcism
+	dp 		= { id = 54428 },		-- divine plea
+	ss 		= { id = 53601 },		-- sacred shield
+}
+
+-- prot abilities
+local ppq = {
+	{ alias = "sor", id = "53600" },	-- shield of righteousness
+	{ alias = "hotr", id = "53595" },	-- hammer of the righteous
+	{ alias = "hs", id = "20925" },		-- holy shield
+	{ alias = "cons", id = "48819" },	-- consecration
+	{ alias = "jol", id = "53408" },	-- judgement (using wisdom atm)
 }
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -88,6 +97,7 @@ clcret.defaults = {
 		alpha = 1,
 		show = "always",
 		fullDisable = false,
+		protEnabled = true,
 		
 		lbf = {
 			Skills = {},
@@ -314,6 +324,8 @@ end
 function clcret:Init()
 	-- get player name for sov tracking 
 	playerName = UnitName("player")
+	self.spec = "Holy"
+	self["CheckQueue"] = self["CheckQueueHoly"]
 	
 	self.LBF = LibStub('LibButtonFacade', true)
 	
@@ -362,6 +374,11 @@ end
 function clcret:InitSpells()
 	for alias, data in pairs(self.spells) do
 		data.name = GetSpellInfo(data.id)
+	end
+	
+	-- prot stuff
+	for i = 1, 5 do
+		ppq[i].name = GetSpellInfo(ppq[i].id)
 	end
 end
 function clcret:OnSkin(skin, glossAlpha, gloss, group, _, colors)
@@ -538,14 +555,26 @@ function clcret:PLAYER_TALENT_UPDATE()
 		return
 	end
 	
-	-- check cs talent
-	local _, _, _, _, rank = GetTalentInfo(3, 23)
-	if rank == 1 then
+	-- check talents
+	-- cs for ret
+	local _, _, _, _, csRank = GetTalentInfo(3, 23)
+	-- hotr for prot
+	local _, _, _, _, _, hotrRank = GetTalentInfo(2, 26)
+	
+	if csRank == 1 then
+		self.spec = "Ret"
+		self:Enable()
+		self:UpdateShowMethod()
+	elseif hotrRank == 1 and db.protEnabled then
+		self.spec = "Prot"
 		self:Enable()
 		self:UpdateShowMethod()
 	else
+		self.spec = "Holy"
 		self:Disable()
 	end
+	
+	self["CheckQueue"] = self["CheckQueue" .. self.spec]
 end
 
 -- check if we need to update vehicle status
@@ -800,7 +829,87 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- QUEUE LOGIC
 -- ---------------------------------------------------------------------------------------------------------------------
-function clcret:CheckQueue()
+-- holy blank function
+-- ---------------------------------------------------------------------------------------------------------------------
+-- QUEUE LOGIC
+-- ---------------------------------------------------------------------------------------------------------------------
+function clcret:CheckQueueHoly()
+	bprint("This message shouldn't be here")
+end
+
+-- prot queue function
+function clcret:CheckQueueProt()
+	local ctime, v, gcd, gcdStart, gcdDuration
+	ctime = GetTime()
+	
+	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
+	gcd = max(0, gcdStart + gcdDuration - ctime)
+	
+	mana = UnitPower("player")
+	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
+	
+	-- update cooldowns
+	for i=1, 5 do
+		v = ppq[i]
+		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
+		if v.cdStart == nil then return end -- try to solve respec issues
+		v.cd = max(0, v.cdStart + v.cdDuration - ctime)
+	end
+
+
+	-- logic lol
+	local min6, min9
+	local x1 = ppq[1].cd
+	local x2 = ppq[2].cd
+	local x3 = ppq[3].cd
+	local x4 = ppq[4].cd
+	local x5 = ppq[5].cd
+	
+	
+	if x5 < x4 and x5 < x3 then
+		min9 = 5
+	elseif x4 < x3 and x4 <= x5 then
+		min9 = 4
+	else
+		min9 = 3
+	end
+	
+	
+	if x1 <= gcd and x2 <= gcd then
+		self:PQD(1, 1)
+		self:PQD(2, min9)
+	else
+		if x2 < x1 then
+			if x1 < 4.5 + gcd then
+				self:PQD(1, 2)
+				self:PQD(2, min9)
+			else
+				self:PQD(1, min9)
+				self:PQD(2, 2)
+			end
+		else
+			if x2 < 4.5 + gcd then
+				self:PQD(1, 1)
+				self:PQD(2, min9)
+			else
+				self:PQD(1, min9)
+				self:PQD(2, 1)
+			end
+		end
+	end
+	self:UpdateUI()
+end
+-- safe copy from ppq
+function clcret:PQD(i, j)
+	dq[i].name = ppq[j].name
+	dq[i].cdStart = ppq[j].cdStart
+	dq[i].cdDuration = ppq[j].cdDuration
+	dq[i].cd = ppq[j].cd
+end
+
+
+-- ret queue function
+function clcret:CheckQueueRet()
 	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
 	ctime = GetTime()
 	
