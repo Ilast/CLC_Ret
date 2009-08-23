@@ -579,13 +579,13 @@ function clcret:PLAYER_TALENT_UPDATE()
 	-- cs for ret
 	local _, _, _, _, csRank = GetTalentInfo(3, 23)
 	-- hotr for prot
-	local _, _, _, _, _, hotrRank = GetTalentInfo(2, 26)
+	local _, _, _, _, hotrRank = GetTalentInfo(2, 26)
 	
 	if csRank == 1 then
 		self.spec = "Ret"
 		self:Enable()
 		self:UpdateShowMethod()
-	elseif hotrRank == 1 and db.protEnabled then
+	elseif (hotrRank == 1) and db.protEnabled then
 		self.spec = "Prot"
 		self:Enable()
 		self:UpdateShowMethod()
