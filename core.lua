@@ -420,6 +420,8 @@ function clcret:EditQueue(args)
 	-- redo queue
 	self:UpdateFCFS()
 	self:DisplayFCFS()
+	
+	InterfaceOptionsFrame_OpenToCategory("clcret")
 end
 
 -- update pq from fcfs
@@ -439,6 +441,14 @@ function clcret:UpdateFCFS()
 	end
 	
 	pq = newpq
+	
+	-- check if people added enough spells
+	if numSpells < 2 then
+		bprint("You need at least 2 skills in the queue. Edit it again and then uncheck Addon disabled")
+		-- toggle it off
+		db.fullDisable = false
+		self:FullDisableToggle()
+	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
