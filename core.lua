@@ -137,6 +137,7 @@ clcret.defaults = {
 		manaDPPerc = 0,
 		gcdDpSs = 0,
 		delayedStart = 5,
+		rangePerSkill = false,
 		
 		-- layout of the 2 skill button
 		layout = {
@@ -359,7 +360,7 @@ function clcret:Init()
 	
 	self:UpdateFCFS()
 	self:InitUI()
-	self:UpdateAuraButtonCooldowns()
+	self:UpdateAuraButtonsCooldown()
 	self:PLAYER_TALENT_UPDATE()
 	
 	if self.LBF then
@@ -610,20 +611,6 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- UPDATE FUNCTIONS
 -- ---------------------------------------------------------------------------------------------------------------------
-
--- updates the 2 skill buttons
-function clcret:UpdateUI()
-	-- queue
-	for i = 1, 2 do
-		local button = buttons[i]
-		button.texture:SetTexture(GetSpellTexture(dq[i].name))
-			
-		if dq[i].cdDuration > 0 then
-			button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
-		end
-	end
-end
-
 -- just show the button for positioning
 function clcret:AuraButtonExecNone(index)
 	auraButtons[auraIndex]:Show()
@@ -831,16 +818,44 @@ function clcret:AuraButtonExecGenericDebuff()
 	end
 end
 
+
+-- updates the 2 skill buttons
+function clcret:UpdateUI()
+	-- queue
+	for i = 1, 2 do
+		local button = buttons[i]
+		button.texture:SetTexture(GetSpellTexture(dq[i].name))
+			
+		if dq[i].cdDuration > 0 then
+			button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
+		end
+	end
+end
+
 -- melee range check
 function clcret:CheckRange()
-	local range = IsSpellInRange(self.spells["cs"].name, "target")	
-	if range ~= nil and range == 0 then
+	local range
+	if db.rangePerSkill then
+		-- each skill shows the range of the ability
 		for i = 1, 2 do
-			buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
+			range = IsSpellInRange(dq[i].name, "target")
+			if range ~= nil and range == 0 then
+				buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
+			else
+				buttons[i].texture:SetVertexColor(1, 1, 1)
+			end
 		end
 	else
-		for i = 1, 2 do
-			buttons[i].texture:SetVertexColor(1, 1, 1)
+		-- both skills show melee range
+		range = IsSpellInRange(self.spells["cs"].name, "target")	
+		if range ~= nil and range == 0 then
+			for i = 1, 2 do
+				buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
+			end
+		else
+			for i = 1, 2 do
+				buttons[i].texture:SetVertexColor(1, 1, 1)
+			end
 		end
 	end
 end
@@ -1663,7 +1678,7 @@ end
 
 
 -- reversed and edged cooldown look for buffs and debuffs
-function clcret:UpdateAuraButtonCooldowns()
+function clcret:UpdateAuraButtonsCooldown()
 	for i = 1, MAX_AURAS do
 		if (db.auras[i].data.exec == "AuraButtonExecGenericBuff") or (db.auras[i].data.exec == "AuraButtonExecGenericDebuff") then
 			auraButtons[i].cooldown:SetReverse(true)

@@ -210,8 +210,15 @@ function clcret:InitOptions()
 							self.scanFrequencyAuras = 1 / val
 						end,
 					},
-					delayedStart = {
+					rangePerSkill = {
 						order = 3,
+						type = "toggle",
+						name = "Check range for each skill",
+						get = function(info) return db.rangePerSkill end,
+						set = function(info, val) db.rangePerSkill = val end,
+					},
+					delayedStart = {
+						order = 4,
 						type = "range",
 						name = "Delay start by (seconds)",
 						min = 0,
@@ -653,7 +660,7 @@ function clcret:InitOptions()
 							end
 						end
 						clcret:UpdateEnabledAuraButtons()
-						clcret:UpdateAuraButtonCooldowns()
+						clcret:UpdateAuraButtonsCooldown()
 					end,
 					values = execList,
 				},
