@@ -359,6 +359,7 @@ function clcret:Init()
 	
 	self:UpdateFCFS()
 	self:InitUI()
+	self:UpdateAuraButtonCooldowns()
 	self:PLAYER_TALENT_UPDATE()
 	
 	if self.LBF then
@@ -1601,6 +1602,8 @@ function clcret:CreateSovBar(index)
 	-- cooldown for button mode
 	frame.cooldown = CreateFrame("Cooldown", "$parentCooldown", frame)
 	frame.cooldown:SetAllPoints(frame)
+	frame.cooldown:SetReverse(true)
+	frame.cooldown:SetDrawEdge(true)
 	
 	-- stack
 	frame.labelStack = frame.cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
@@ -1657,6 +1660,21 @@ function clcret:ToggleSovTracking()
 	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
+
+
+-- reversed and edged cooldown look for buffs and debuffs
+function clcret:UpdateAuraButtonCooldowns()
+	for i = 1, MAX_AURAS do
+		if (db.auras[i].data.exec == "AuraButtonExecGenericBuff") or (db.auras[i].data.exec == "AuraButtonExecGenericDebuff") then
+			auraButtons[i].cooldown:SetReverse(true)
+			auraButtons[i].cooldown:SetDrawEdge(true)
+		else
+			auraButtons[i].cooldown:SetReverse(false)
+			auraButtons[i].cooldown:SetDrawEdge(false)
+		end
+	end
+end
+
 
 -- update the used aura buttons to shorten the for
 function clcret:UpdateEnabledAuraButtons()
