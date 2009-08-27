@@ -1197,7 +1197,7 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	button.texture:SetAllPoints()
 	button.texture:SetTexture(BGTEX)
 	
-	button.border = button:CreateTexture(nil, "BACKGROUND") -- not $parentBorder so it can work when bf is enabled
+	button.border = button:CreateTexture(nil, "BORDER") -- not $parentBorder so it can work when bf is enabled
 	button.border:SetAllPoints()
 	button.border:SetTexture(BORDERTEX)
 	button.border:SetVertexColor(unpack(db.borderColor))
@@ -1205,7 +1205,7 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	button.cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
 	button.cooldown:SetAllPoints(button)
 	
-	button.stack = button:CreateFontString("$parentCount", "HIGHLIGHT", "TextStatusBarText")
+	button.stack = button:CreateFontString("$parentCount", "OVERLAY", "TextStatusBarText")
 	local fontFace, _, fontFlags = button.stack:GetFont()
 	button.stack:SetFont(fontFace, 30, fontFlags)
 	button.stack:SetJustifyH("RIGHT")
