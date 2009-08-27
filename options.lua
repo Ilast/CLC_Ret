@@ -89,6 +89,7 @@ function clcret:InitOptions()
 							db.noBorder = val
 							clcret:UpdateSkillButtonsLayout()
 							clcret:UpdateAuraButtonsLayout()
+							clcret:UpdateSovBarsLayout()
 						end,
 					},
 					borderColor = {

@@ -1528,9 +1528,13 @@ function clcret:UpdateSovBarsLayout()
 			bar.cooldown:Show()
 			
 			-- show border
-			bar.border:SetAllPoints(bar)
-			bar.border:SetVertexColor(unpack(db.borderColor))
-			bar.border:Show()
+			if db.noBorder then
+				bar.border:Hide()
+			else
+				bar.border:SetAllPoints(bar)
+				bar.border:SetVertexColor(unpack(db.borderColor))
+				bar.border:Show()
+			end
 			
 		else
 			-- positioning
@@ -1599,7 +1603,7 @@ function clcret:CreateSovBar(index)
 	frame.icon = frame:CreateTexture(nil, "BACKGROUND")
 	frame.icon:SetTexture(GetSpellTexture(sovTextureSpell))
 	
-	frame.border = frame:CreateTexture(nil, "BACKGROUND")
+	frame.border = frame:CreateTexture(nil, "BORDER")
 	frame.border:SetTexture(BORDERTEX)
 	frame.border:Hide()
 	
