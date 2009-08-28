@@ -72,6 +72,7 @@ clcret.spells = {
 	exo 	= { id = 48801 },		-- exorcism
 	dp 		= { id = 54428 },		-- divine plea
 	ss 		= { id = 53601 },		-- sacred shield
+	hw		= { id = 2812  },		-- holy wrath
 }
 
 clcret.protSpells = {
