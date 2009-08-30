@@ -166,7 +166,7 @@ clcret.defaults = {
 			-- 1
 			-- avenging wrath
 			{
-				enabled = true,
+				enabled = false,
 				data = {
 					exec = "AuraButtonExecSkillVisibleAlways",
 					spell = awSpellName,
@@ -187,7 +187,7 @@ clcret.defaults = {
 			-- 2
 			-- divine plea
 			{
-				enabled = true,
+				enabled = false,
 				data = {
 					exec = "AuraButtonExecSkillVisibleNoCooldown",
 					spell = dpSpellName,
@@ -207,7 +207,7 @@ clcret.defaults = {
 			-- 3
 			-- sov
 			{
-				enabled = true,
+				enabled = false,
 				data = {
 					exec = "AuraButtonExecGenericDebuff",
 					spell = sovName,
@@ -228,7 +228,7 @@ clcret.defaults = {
 			-- 4
 			-- taow
 			{
-				enabled = true,
+				enabled = false,
 				data = {
 					exec = "AuraButtonExecGenericBuff",
 					spell = taowSpellName,
@@ -638,7 +638,7 @@ function clcret:AuraButtonExecSkillVisibleAlways()
 	end
 	
 	local start, duration = GetSpellCooldown(data.spell)
-	if duration > 0 then
+	if duration and duration > 0 then
 		button.cooldown:SetCooldown(start, duration)
 	end
 end
@@ -663,7 +663,7 @@ function clcret:AuraButtonExecSkillVisibleNoCooldown()
 		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
 	end
 	
-	if duration > 1.5 then
+	if duration and duration > 1.5 then
 		button:Hide()
 	else
 		button:Show()
@@ -697,7 +697,7 @@ function clcret:AuraButtonExecItemVisibleAlways()
 	end
 	
 	local start, duration = GetItemCooldown(data.spell)
-	if duration > 0 then
+	if duration and duration > 0 then
 		button.cooldown:SetCooldown(start, duration)
 	end
 
@@ -729,7 +729,7 @@ function clcret:AuraButtonExecItemVisibleNoCooldown()
 		button.texture:SetVertexColor(0.3, 0.3, 0.3, 1)
 	end
 	
-	if duration > 1.5 then
+	if duration and duration > 1.5 then
 		button:Hide()
 	else
 		button:Show()
@@ -754,7 +754,7 @@ function clcret:AuraButtonExecGenericBuff()
 			button:Hide()
 		else
 			-- found the debuff
-			if duration > 0 then
+			if duration and duration > 0 then
 				button.cooldown:SetCooldown(expirationTime - duration, duration)
 			end
 			
@@ -795,7 +795,7 @@ function clcret:AuraButtonExecGenericDebuff()
 			button:Hide()
 		else
 			-- found the debuff
-			if duration > 0 then
+			if duration and duration > 0 then
 				button.cooldown:SetCooldown(expirationTime - duration, duration)
 			end
 			
