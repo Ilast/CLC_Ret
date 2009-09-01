@@ -334,6 +334,13 @@ function clcret:OnInitialize()
 	self:ScheduleTimer("Init", db.delayedStart)
 end
 function clcret:Init()
+	-- test if it's a paladin or not
+	local localclass, trueclass = UnitClass("player")
+	if trueclass ~= "PALADIN" then
+		bprint("|cffff0000Warning!|cffffffff This addon is not designed to work with " .. localclass .. " class. Probably would be better to disable it on this char.")
+		return
+	end
+
 	-- get player name for sov tracking 
 	playerName = UnitName("player")
 	self.spec = "Holy"
