@@ -128,6 +128,7 @@ clcret.defaults = {
 		
 		-- behavior
 		latency = 0.15,
+		dpssLatency = 0.15,
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
 		manaCons = 0,
@@ -983,7 +984,7 @@ function clcret:CheckRange()
 	if db.rangePerSkill then
 		-- each skill shows the range of the ability
 		for i = 1, 2 do
-			range = IsSpellInRange(dq[i].name, "target")
+			range = IsSpellInRange(dq[i], "target")
 			if range ~= nil and range == 0 then
 				buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
 			else
@@ -1183,10 +1184,12 @@ function clcret:GetBest(pos)
 		-- TODO check this more
 		if db.gcdDpSs > 0 then
 		 	if not (v.alias == "dp" or v.alias == "ss") then
-				v.cd = v.cd - 1.5
+				v.cd = max(0, v.cd - 1.5)
+			else
+				v.cd = v.cd + db.dpssLatency
 			end
 		else
-			v.cd = v.cd - 1.5
+			v.cd = max(0, v.cd - 1.5)
 		end
 	end
 	dq[pos] = pq[index].name

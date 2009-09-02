@@ -197,6 +197,18 @@ function clcret:InitOptions()
 							db.latency = val
 						end,
 					},
+					dpssLatency = {
+						order = 100, 
+						type = "range",
+						name = "Divine Plea and SS Latency",
+						min = 0,
+						max = 1,
+						step = 0.01,
+						get = function(info) return db.dpssLatency end,
+						set = function(info, val)
+							db.dpssLatency = val
+						end,
+					},
 					ups = {
 						order = 5,
 						type = "range",
