@@ -185,8 +185,20 @@ function clcret:InitOptions()
 				name = "Behavior",
 				type = "group",
 				args = {
+					latency = {
+						order = 11, 
+						type = "range",
+						name = "Latency",
+						min = 0,
+						max = 1,
+						step = 0.01,
+						get = function(info) return db.latency end,
+						set = function(info, val)
+							db.latency = val
+						end,
+					},
 					ups = {
-						order = 1,
+						order = 5,
 						type = "range",
 						name = "Updates per second",
 						min = 1,
@@ -199,7 +211,7 @@ function clcret:InitOptions()
 						end,
 					},
 					upsAuras = {
-						order = 2,
+						order = 10,
 						type = "range",
 						name = "Updates per second for Aura Buttons",
 						min = 1,
@@ -212,14 +224,14 @@ function clcret:InitOptions()
 						end,
 					},
 					rangePerSkill = {
-						order = 3,
+						order = 15,
 						type = "toggle",
 						name = "Check range for each skill",
 						get = function(info) return db.rangePerSkill end,
 						set = function(info, val) db.rangePerSkill = val end,
 					},
 					delayedStart = {
-						order = 4,
+						order = 20,
 						type = "range",
 						name = "Delay start by (seconds)",
 						min = 0,
@@ -229,7 +241,7 @@ function clcret:InitOptions()
 						set = function(info, val) db.delayedStart = val end,
 					},
 					manaCons = {
-						order = 5,
+						order = 25,
 						type = "range",
 						name = "Minimum mana for Consecration",
 						min = 0,
@@ -239,7 +251,7 @@ function clcret:InitOptions()
 						set = function(info, val) db.manaCons = val end,
 					},
 					manaConsPerc = {
-						order = 6,
+						order = 30,
 						type = "range",
 						name = "% Minimum mana for Consecration",
 						min = 0,
@@ -249,7 +261,7 @@ function clcret:InitOptions()
 						set = function(info, val) db.manaConsPerc = val end,
 					},
 					manaDP = {
-						order = 10,
+						order = 35,
 						type = "range",
 						name = "Maximum mana for Divine Plea",
 						min = 0,
@@ -259,7 +271,7 @@ function clcret:InitOptions()
 						set = function(info, val) db.manaDP = val end,
 					},
 					manaDPPerc = {
-						order = 11,
+						order = 40,
 						type = "range",
 						name = "% Maximum mana for Divine Plea",
 						min = 0,
@@ -269,7 +281,7 @@ function clcret:InitOptions()
 						set = function(info, val) db.manaDPPerc = val end,
 					},
 					gcdDpSs = {
-						order = 30,
+						order = 50,
 						type = "range",
 						min = 0,
 						max = 2,

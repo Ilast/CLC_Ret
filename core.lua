@@ -33,10 +33,7 @@ local ppq
 -- number of spells in the queue
 local numSpells
 -- display queue
-local dq = {	
-	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
-	{name = "", cdStart = 0, cdDuration = 0, cd = 0},
-}
+local dq = { "", "" }
 
 -- main and secondary skill buttons
 local buttons = {}
@@ -130,6 +127,7 @@ clcret.defaults = {
 		},
 		
 		-- behavior
+		latency = 0.15,
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
 		manaCons = 0,
@@ -319,9 +317,142 @@ local function OnUpdate(this, elapsed)
 			clcret:UpdateSovBars()
 		end
 	end
+	
+	--[[ DEBUG
+	clcret:UpdateDebugFrame()
+	--]]
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
+--[[ DEBUG
+
+function clcret:GetFastLeft(spell)
+	local start, duration = GetSpellCooldown(spell)
+	if start > 0 then
+		return duration - (GetTime() - start)
+	end
+	return 0
+end
+
+function clcret:UpdateDebugFrame()
+	local line, gcd
+	line = clcret.debugLines[1]
+	
+	gcd = self:GetFastLeft("Cleanse")
+	
+	line:Show()
+	line.icon:SetTexture(GetSpellTexture("Cleanse"))
+	line.text1:Show()
+	line.text1:SetText(string.format("%.3f", gcd))
+	
+	for i = 1, 9 do
+		line = clcret.debugLines[i + 1]
+		if pq[i] and pq[i].cd and pq[i].xcd then
+			line:Show()
+			line.icon:SetTexture(GetSpellTexture(pq[i].name))
+			line.text1:Show()
+			line.text1:SetText(string.format("%.3f", self:GetFastLeft(pq[i].name)))
+			line.text2:Show()
+			line.text2:SetText(string.format("%.3f", self:GetFastLeft(pq[i].name) - gcd))
+			line.text3:Show()
+			line.text3:SetText(string.format("%.3f", pq[i].xcd))
+			line.text4:Show()
+			line.text4:SetText(string.format("%.3f", pq[i].cd + 3))
+			line.text5:Show()
+			line.text5:SetText(string.format("%.3f", pq[i].cd + 1.5))
+		else
+			line:Hide()
+		end
+	end
+end
+
+function clcret:InitDebugFrame()
+	local frame = CreateFrame("Frame", nil, UIParent)
+	frame:SetWidth(300)
+	frame:SetHeight(200)
+	local texture = frame:CreateTexture(nil, "BACKGROUND")
+	texture:SetAllPoints()
+	texture:SetVertexColor(0, 0, 0, 1)
+	texture:SetTexture(BGTEX)
+	frame:SetPoint("RIGHT")
+	
+	clcret.debugLines = {}
+	local line, fs
+	for i = 1, 10 do
+		local line = CreateFrame("Frame", nil, frame)
+		line:SetWidth(300)
+		line:SetHeight(20)
+		line:SetPoint("TOPLEFT", 0, -(i * 20 - 20))
+		
+		texture = line:CreateTexture(nil, "BACKGROUND")
+		texture:SetAllPoints()
+		texture:SetVertexColor(0.1, 0.1, 0.1, 1)
+		texture:SetTexture(BGTEX)
+		
+		texture = line:CreateTexture(nil, "ARTWORK")
+		texture:SetWidth(18)
+		texture:SetHeight(18)
+		texture:SetPoint("BOTTOMLEFT", 1, 1)
+		texture:SetVertexColor(1, 1, 1, 1)
+		line.icon = texture
+		
+		fs = line:CreateFontString(nil, nil, "GameFontHighlight")
+		fs:SetFont(STANDARD_TEXT_FONT, 10)
+		fs:SetJustifyH("RIGHT")
+		fs:SetWidth(50)
+		fs:SetHeight(18)
+		fs:SetPoint("RIGHT", line, "LEFT", 70, 0)
+		fs:SetText("1.234")
+		fs:Hide()
+		line.text1 = fs
+		
+		fs = line:CreateFontString(nil, nil, "GameFontHighlight")
+		fs:SetFont(STANDARD_TEXT_FONT, 10)
+		fs:SetJustifyH("RIGHT")
+		fs:SetWidth(50)
+		fs:SetHeight(18)
+		fs:SetPoint("RIGHT", line, "LEFT", 120, 0)
+		fs:SetText("1.234")
+		fs:Hide()
+		line.text2 = fs
+		
+		fs = line:CreateFontString(nil, nil, "GameFontHighlight")
+		fs:SetFont(STANDARD_TEXT_FONT, 10)
+		fs:SetJustifyH("RIGHT")
+		fs:SetWidth(50)
+		fs:SetHeight(18)
+		fs:SetPoint("RIGHT", line, "LEFT", 170, 0)
+		fs:SetText("1.234")
+		fs:Hide()
+		line.text3 = fs
+		
+		fs = line:CreateFontString(nil, nil, "GameFontHighlight")
+		fs:SetFont(STANDARD_TEXT_FONT, 10)
+		fs:SetJustifyH("RIGHT")
+		fs:SetWidth(50)
+		fs:SetHeight(18)
+		fs:SetPoint("RIGHT", line, "LEFT", 220, 0)
+		fs:SetText("1.234")
+		fs:Hide()
+		line.text4 = fs
+		
+		fs = line:CreateFontString(nil, nil, "GameFontHighlight")
+		fs:SetFont(STANDARD_TEXT_FONT, 10)
+		fs:SetJustifyH("RIGHT")
+		fs:SetWidth(50)
+		fs:SetHeight(18)
+		fs:SetPoint("RIGHT", line, "LEFT", 270, 0)
+		fs:SetText("1.234")
+		fs:Hide()
+		line.text5 = fs
+		
+		clcret.debugLines[i] = line
+		line:Hide()
+	end
+	
+	clcret.debugFrame = frame
+end
+--]]
 
 -- ---------------------------------------------------------------------------------------------------------------------
 -- INIT
@@ -389,6 +520,11 @@ function clcret:Init()
 	if db.sov.enabled then
 		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 	end
+	
+	
+	--[[ DEBUG
+	self:InitDebugFrame()
+	--]]
 end
 -- get the spell names from ids
 function clcret:InitSpells()
@@ -832,10 +968,11 @@ function clcret:UpdateUI()
 	-- queue
 	for i = 1, 2 do
 		local button = buttons[i]
-		button.texture:SetTexture(GetSpellTexture(dq[i].name))
-			
-		if dq[i].cdDuration > 0 then
-			button.cooldown:SetCooldown(dq[i].cdStart, dq[i].cdDuration)
+		button.texture:SetTexture(GetSpellTexture(dq[i]))
+		
+		local start, duration = GetSpellCooldown(dq[i])
+		if duration and duration > 0 then
+			button.cooldown:SetCooldown(start, duration)
 		end
 	end
 end
@@ -886,8 +1023,18 @@ function clcret:CheckQueueProt()
 	local ctime, v, gcd, gcdStart, gcdDuration
 	ctime = GetTime()
 	
+	-- get gcd
 	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
-	gcd = max(0, gcdStart + gcdDuration - ctime)
+	if gcdStart > 0 then
+		gcd = gcdStart + gcdDuration - ctime
+	else
+		gcd = 0
+	end
+	
+		
+	-- latency test
+	-- TODO add a flash to the first skill?
+	if gcd > (1.5 - db.latency) then return end
 	
 	mana = UnitPower("player")
 	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
@@ -896,8 +1043,13 @@ function clcret:CheckQueueProt()
 	for i=1, 5 do
 		v = ppq[i]
 		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
-		if v.cdStart == nil then return end -- try to solve respec issues
-		v.cd = max(0, v.cdStart + v.cdDuration - ctime)
+		if not v.cdDuration then return end -- try to solve respec issues
+		
+		if v.cdStart > 0 then
+			v.cd = v.cdStart + v.cdDuration - ctime
+		else
+			v.cd = 0
+		end
 	end
 
 
@@ -945,10 +1097,7 @@ function clcret:CheckQueueProt()
 end
 -- safe copy from ppq
 function clcret:PQD(i, j)
-	dq[i].name = ppq[j].name
-	dq[i].cdStart = ppq[j].cdStart
-	dq[i].cdDuration = ppq[j].cdDuration
-	dq[i].cd = ppq[j].cd
+	dq[i] = ppq[j].name
 end
 
 
@@ -962,16 +1111,28 @@ function clcret:CheckQueueRet()
 	
 	-- get gcd
 	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
-	gcd = max(0, gcdStart + gcdDuration - ctime)
+	if gcdStart > 0 then
+		gcd = gcdStart + gcdDuration - ctime
+	else
+		gcd = 0
+	end
+	
+	-- latency test
+	-- TODO add a flash to the first skill?
+	if gcd > (1.5 - db.latency) then return end
 	
 	-- update cooldowns
-	for i=1, numSpells do
+	for i = 1, numSpells do
 		v = pq[i]
 		
 		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
-		if v.cdStart == nil then return end -- try to solve respec issues
+		if not v.cdDuration then return end -- try to solve respec issues
 		
-		v.cd = max(0, v.cdStart + v.cdDuration - ctime)
+		if v.cdStart > 0 then
+			v.cd = v.cdStart + v.cdDuration - ctime
+		else
+			v.cd = 0
+		end
 		
 		-- how check
 		if v.alias == "how" then
@@ -993,7 +1154,11 @@ function clcret:CheckQueueRet()
 			v.cd = v.cd + db.gcdDpSs
 		end
 		
-		v.xcd = v.cd - gcd
+		-- adjust to gcd
+		v.cd = v.cd - gcd
+		--[[ DEBUG
+		v.xcd = v.cd
+		--]]
 	end
 
 	self:GetBest(1)
@@ -1003,33 +1168,29 @@ function clcret:CheckQueueRet()
 end
 -- gets best skill from pq according to priority and cooldown
 function clcret:GetBest(pos)
-	local xcd, xindex, v
-	xindex = 1
-	xcd = pq[1].xcd
+	local cd, index, v
+	index = 1
+	cd = pq[1].cd
 	
 	for i = 1, numSpells do
 		v = pq[i]
-		if v.xcd < xcd or (v.xcd == xcd and i < xindex) then
-			xindex = i
-			xcd = v.xcd
+		-- if skill is a better choice change index
+		if v.cd < cd or (v.cd == cd and i < index) then
+			index = i
+			cd = v.cd
 		end
+		-- lower the cd for the next pass
+		-- TODO check this more
 		if db.gcdDpSs > 0 then
-			if not (v.alias == "dp" or v.alias == "ss") then
-				v.xcd = max(0, v.xcd - 1.5)
+		 	if not (v.alias == "dp" or v.alias == "ss") then
+				v.cd = v.cd - 1.5
 			end
 		else
-			v.xcd = max(0, v.xcd - 1.5)
+			v.cd = v.cd - 1.5
 		end
 	end
-	self:QD(pos, xindex)
-	pq[xindex].xcd = 1000
-end
--- safe copy 
-function clcret:QD(i, j)
-	dq[i].name = pq[j].name
-	dq[i].cdStart = pq[j].cdStart
-	dq[i].cdDuration = pq[j].cdDuration
-	dq[i].cd = pq[j].cd
+	dq[pos] = pq[index].name
+	pq[index].cd = 100
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
