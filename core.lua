@@ -80,6 +80,10 @@ clcret.protSpells = {
 	jol = { id = "53408" },			-- judgement (using wisdom atm)
 }
 
+-- used for the highlight lock on skill use
+local lastgcd = 0
+local startgcd = 3
+
 
 -- ---------------------------------------------------------------------------------------------------------------------
 -- DEFAULT VALUES
@@ -976,6 +980,8 @@ function clcret:UpdateUI()
 			button.cooldown:SetCooldown(start, duration)
 		end
 	end
+	
+	-- clcretSB1:UnlockHighlight()
 end
 
 -- melee range check
@@ -1012,9 +1018,6 @@ end
 -- QUEUE LOGIC
 -- ---------------------------------------------------------------------------------------------------------------------
 -- holy blank function
--- ---------------------------------------------------------------------------------------------------------------------
--- QUEUE LOGIC
--- ---------------------------------------------------------------------------------------------------------------------
 function clcret:CheckQueueHoly()
 	bprint("This message shouldn't be here")
 end
@@ -1118,9 +1121,25 @@ function clcret:CheckQueueRet()
 		gcd = 0
 	end
 	
+	--[[
 	-- latency test
 	-- TODO add a flash to the first skill?
-	if gcd > (1.5 - db.latency) then return end
+	if gcd > (1.5 - db.latency) then
+		clcretSB1:LockHighlight()
+		return
+	end
+	]]
+	
+	if lastgcd < gcd then
+		-- skill trying to be used
+		startgcd = gcd
+		clcretSB1:LockHighlight()
+	end
+	lastgcd = gcd
+	if (startgcd - gcd) < db.latency then 
+		return
+	end
+	clcretSB1:UnlockHighlight()
 	
 	-- update cooldowns
 	for i = 1, numSpells do
@@ -1329,6 +1348,8 @@ function clcret:InitUI()
 	for i = 1, 2 do
 		opt = db.layout["button" .. i]
 		buttons[i] = self:CreateButton("SB" .. i, opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills")
+		buttons[i]:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+		buttons[i]:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 		buttons[i]:SetAlpha(opt.alpha)
 		buttons[i]:Show()
 	end
