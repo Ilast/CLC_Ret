@@ -1,4 +1,8 @@
-local function bprint(s)
+local function bprint(...)
+	local s = ""
+	for i = 1, select("#", ...) do
+		s = s .. " " .. tostring(select(i, ...))
+	end
 	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
 end
 
@@ -33,7 +37,7 @@ local ppq
 -- number of spells in the queue
 local numSpells
 -- display queue
-local dq = { "", "" }
+local dq = { cleanseSpellName, cleanseSpellName }
 
 -- main and secondary skill buttons
 local buttons = {}
@@ -82,7 +86,7 @@ clcret.protSpells = {
 
 -- used for the highlight lock on skill use
 local lastgcd = 0
-local startgcd = 3
+local startgcd = -1
 
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -131,6 +135,7 @@ clcret.defaults = {
 		},
 		
 		-- behavior
+		highlight = true,
 		latency = 0.15,
 		dpssLatency = 0.15,
 		updatesPerSecond = 10,
@@ -361,10 +366,10 @@ function clcret:UpdateDebugFrame()
 			line.text2:SetText(string.format("%.3f", self:GetFastLeft(pq[i].name) - gcd))
 			line.text3:Show()
 			line.text3:SetText(string.format("%.3f", pq[i].xcd))
-			line.text4:Show()
-			line.text4:SetText(string.format("%.3f", pq[i].cd + 3))
-			line.text5:Show()
-			line.text5:SetText(string.format("%.3f", pq[i].cd + 1.5))
+			-- line.text4:Show()
+			-- line.text4:SetText(string.format("%.3f", pq[i].cd + 3))
+			-- line.text5:Show()
+			-- line.text5:SetText(string.format("%.3f", pq[i].cd + 1.5))
 		else
 			line:Hide()
 		end
@@ -980,8 +985,6 @@ function clcret:UpdateUI()
 			button.cooldown:SetCooldown(start, duration)
 		end
 	end
-	
-	-- clcretSB1:UnlockHighlight()
 end
 
 -- melee range check
@@ -1036,9 +1039,27 @@ function clcret:CheckQueueProt()
 	end
 	
 		
-	-- latency test
-	-- TODO add a flash to the first skill?
-	if gcd > (1.5 - db.latency) then return end
+	if db.highlight then
+		local msgcd
+		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
+		if gcdStart > 0 then
+			msgcd = gcdStart + gcdDuration - ctime
+		else
+			msgcd = 0
+		end
+		
+		if lastgcd < msgcd and msgcd <= 1.5 then
+			-- pressed main skill
+			startgcd = msgcd
+			clcretSB1:LockHighlight()
+		end
+		lastgcd = msgcd
+		if startgcd >= msgcd and (gcd > 1.5 - db.latency) then
+			return
+		end
+		clcretSB1:UnlockHighlight()
+	end
+	
 	
 	mana = UnitPower("player")
 	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
@@ -1120,26 +1141,28 @@ function clcret:CheckQueueRet()
 	else
 		gcd = 0
 	end
-	
-	--[[
-	-- latency test
-	-- TODO add a flash to the first skill?
-	if gcd > (1.5 - db.latency) then
-		clcretSB1:LockHighlight()
-		return
+
+	-- highlight when used
+	if db.highlight then
+		local msgcd
+		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
+		if gcdStart > 0 then
+			msgcd = gcdStart + gcdDuration - ctime
+		else
+			msgcd = 0
+		end
+		
+		if lastgcd < msgcd and msgcd <= 1.5 then
+			-- pressed main skill
+			startgcd = msgcd
+			clcretSB1:LockHighlight()
+		end
+		lastgcd = msgcd
+		if startgcd >= msgcd and (gcd > 1.5 - db.latency) then
+			return
+		end
+		clcretSB1:UnlockHighlight()
 	end
-	]]
-	
-	if lastgcd < gcd then
-		-- skill trying to be used
-		startgcd = gcd
-		clcretSB1:LockHighlight()
-	end
-	lastgcd = gcd
-	if (startgcd - gcd) < db.latency then 
-		return
-	end
-	clcretSB1:UnlockHighlight()
 	
 	-- update cooldowns
 	for i = 1, numSpells do
@@ -1348,11 +1371,11 @@ function clcret:InitUI()
 	for i = 1, 2 do
 		opt = db.layout["button" .. i]
 		buttons[i] = self:CreateButton("SB" .. i, opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills")
-		buttons[i]:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-		buttons[i]:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 		buttons[i]:SetAlpha(opt.alpha)
 		buttons[i]:Show()
 	end
+	-- highlight for main skill
+	clcretSB1:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 	self:InitAuraButtons()
 	
 	-- set scale

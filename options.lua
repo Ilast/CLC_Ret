@@ -185,10 +185,17 @@ function clcret:InitOptions()
 				name = "Behavior",
 				type = "group",
 				args = {
+					highlight = {
+						order = 11,
+						type = "toggle",
+						name = "Highlight on use",
+						get = function(info) return db.highlight end,
+						set = function(info, val) db.highlight = val end,
+					},
 					latency = {
-						order = 11, 
+						order = 12, 
 						type = "range",
-						name = "Latency",
+						name = "Client max latency",
 						min = 0,
 						max = 1,
 						step = 0.01,
