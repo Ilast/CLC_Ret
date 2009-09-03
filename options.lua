@@ -30,36 +30,58 @@ function clcret:InitOptions()
 	
 	self.options = {
 		type = "group",
+		name = "clcret",
 		args = {
-			-- lock frame
-			lock = {
-				order = 1,
-				type = "toggle",
-				name = "Lock Frame",
-				get = function(info) return self.locked end,
-				set = function(info, val)
-					clcret:ToggleLock()
-				end,
-			},
-			
-			-- full disable toggle
-			fullDisable = {
-				order = 2,
-				type = "toggle",
-				name = "Addon disabled",
-				get = function(info) return db.fullDisable end,
-				set = function(info, val) clcret:FullDisableToggle() end,
-			},
-			-- full disable toggle
-			protEnabled = {
-				order = 3,
-				type = "toggle",
-				name = "Enable prot module",
-				get = function(info) return db.protEnabled end,
-				set = function(info, val)
-					db.protEnabled = val
-					clcret:PLAYER_TALENT_UPDATE()
-				end,
+			global = {
+				type = "group",
+				name = "clcret",
+				args = {
+					-- lock frame
+					lock = {
+						order = 1,
+						width = "full",
+						type = "toggle",
+						name = "Lock Frame",
+						get = function(info) return self.locked end,
+						set = function(info, val)
+							clcret:ToggleLock()
+						end,
+					},
+					
+					show = {
+						order = 10,
+						type = "select",
+						name = "Show",
+						get = function(info) return db.show end,
+						set = function(info, val)
+							db.show = val
+							clcret:UpdateShowMethod()
+						end,
+						values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
+					},
+					
+					-- full disable toggle
+					fullDisable = {
+						order = 20,
+						width = "full",
+						type = "toggle",
+						name = "Addon disabled",
+						get = function(info) return db.fullDisable end,
+						set = function(info, val) clcret:FullDisableToggle() end,
+					},
+					-- full disable toggle
+					protEnabled = {
+						order = 30,
+						width = "full",
+						type = "toggle",
+						name = "Enable prot module",
+						get = function(info) return db.protEnabled end,
+						set = function(info, val)
+							db.protEnabled = val
+							clcret:PLAYER_TALENT_UPDATE()
+						end,
+					},
+				},
 			},
 		
 			-- appearance
@@ -68,8 +90,13 @@ function clcret:InitOptions()
 				name = "Appearance",
 				type = "group",
 				args = {
-					zoomIcons = {
+					__buttonAspect = {
+						type = "header",
+						name = "Button Aspect",
 						order = 1,
+					},
+					zoomIcons = {
+						order = 2,
 						type = "toggle",
 						name = "Zoomed icons",
 						get = function(info) return db.zoomIcons end,
@@ -81,7 +108,7 @@ function clcret:InitOptions()
 						end,
 					},
 					noBorder = {
-						order = 2,
+						order = 3,
 						type = "toggle",
 						name = "Hide border",
 						get = function(info) return db.noBorder end,
@@ -93,7 +120,7 @@ function clcret:InitOptions()
 						end,
 					},
 					borderColor = {
-						order = 3,
+						order = 4,
 						type = "color",
 						name = "Border color",
 						hasAlpha = true,
@@ -105,8 +132,13 @@ function clcret:InitOptions()
 							clcret:UpdateSovBarsLayout()
 						end,
 					},
-					scale = {
+					__hudAspect = {
+						type = "header",
+						name = "HUD Aspect",
 						order = 5,
+					},
+					scale = {
+						order = 6,
 						type = "range",
 						name = "Scale",
 						min = 0,
@@ -130,6 +162,11 @@ function clcret:InitOptions()
 							db.alpha = val
 							clcret:UpdateFrameSettings()
 						end,
+					},
+					_hudPosition = {
+						type = "header",
+						name = "HUD Position",
+						order = 9,
 					},
 					x = {
 						order = 10,
@@ -165,17 +202,6 @@ function clcret:InitOptions()
 							clcret:CenterHorizontally()
 						end,
 					},
-					show = {
-						order = 20,
-						type = "select",
-						name = "Show",
-						get = function(info) return db.show end,
-						set = function(info, val)
-							db.show = val
-							clcret:UpdateShowMethod()
-						end,
-						values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
-					},
 				},
 			},
 		
@@ -185,41 +211,15 @@ function clcret:InitOptions()
 				name = "Behavior",
 				type = "group",
 				args = {
-					highlight = {
-						order = 11,
-						type = "toggle",
-						name = "Highlight on use",
-						get = function(info) return db.highlight end,
-						set = function(info, val) db.highlight = val end,
-					},
-					latency = {
-						order = 12, 
-						type = "range",
-						name = "Client max latency",
-						min = 0,
-						max = 1,
-						step = 0.01,
-						get = function(info) return db.latency end,
-						set = function(info, val)
-							db.latency = val
-						end,
-					},
-					dpssLatency = {
-						order = 100, 
-						type = "range",
-						name = "Divine Plea and SS Latency",
-						min = 0,
-						max = 1,
-						step = 0.01,
-						get = function(info) return db.dpssLatency end,
-						set = function(info, val)
-							db.dpssLatency = val
-						end,
+					__updateRates = {
+						order = 1,
+						type = "header",
+						name = "Updates per Second",
 					},
 					ups = {
 						order = 5,
 						type = "range",
-						name = "Updates per second",
+						name = "FCFS Detection",
 						min = 1,
 						max = 100,
 						step = 1,
@@ -230,9 +230,9 @@ function clcret:InitOptions()
 						end,
 					},
 					upsAuras = {
-						order = 10,
+						order = 6,
 						type = "range",
-						name = "Updates per second for Aura Buttons",
+						name = "Aura Detection",
 						min = 1,
 						max = 100,
 						step = 1,
@@ -242,15 +242,53 @@ function clcret:InitOptions()
 							self.scanFrequencyAuras = 1 / val
 						end,
 					},
-					rangePerSkill = {
+				
+					__highlight = {
+						order = 10,
+						type = "header",
+						name = "Highlight Main Skill",
+					},
+					____highlight = {
+						order = 11,
+						type = "description",
+						name = "Highlights the main skill when an action is performed until the server confirms the action.",
+					},
+					highlight = {
+						order = 12,
+						type = "toggle",
+						name = "Highlight on use",
+						get = function(info) return db.highlight end,
+						set = function(info, val) db.highlight = val end,
+					},
+					__rangePerSkill = {
 						order = 15,
+						type = "header",
+						name = "Range Display",
+					},
+					____rangePerSkill = {
+						order = 16,
+						type = "description",
+						name = "By default the addon checks if you are in melee range and colors both main and secondary skills if not. This option allows you to display the range of the actual skills displayed.",
+					},
+					rangePerSkill = {
+						order = 17,
 						type = "toggle",
 						name = "Check range for each skill",
 						get = function(info) return db.rangePerSkill end,
 						set = function(info, val) db.rangePerSkill = val end,
 					},
-					delayedStart = {
+					__delayedStart = {
 						order = 20,
+						type = "header",
+						name = "Delayed Start",
+					},
+					____delayedStart = {
+						order = 21,
+						type = "description",
+						name = "Sometimes the talent checks fail at load. If that happens adjust this slider to a higher value.",
+					},
+					delayedStart = {
+						order = 22,
 						type = "range",
 						name = "Delay start by (seconds)",
 						min = 0,
@@ -259,10 +297,20 @@ function clcret:InitOptions()
 						get = function(info) return db.delayedStart end,
 						set = function(info, val) db.delayedStart = val end,
 					},
-					manaCons = {
+					__manaCons = {
 						order = 25,
+						type = "header",
+						name = "Consecration Mana Settings",
+					},
+					____manaCons = {
+						order = 26,
+						type = "description",
+						name = "If your mana drops under the specified value Consecration will be ignored in FCFS detection. A value of 0 deactivates the check.\nFixed value takes precedence so if you want to use the percentage value, set fixed one to 0.",
+					},
+					manaCons = {
+						order = 27,
 						type = "range",
-						name = "Minimum mana for Consecration",
+						name = "Fixed value",
 						min = 0,
 						max = 10000,
 						step = 1,
@@ -270,19 +318,29 @@ function clcret:InitOptions()
 						set = function(info, val) db.manaCons = val end,
 					},
 					manaConsPerc = {
-						order = 30,
+						order = 28,
 						type = "range",
-						name = "% Minimum mana for Consecration",
+						name = "Percentage",
 						min = 0,
 						max = 100,
 						step = 1,
 						get = function(info) return db.manaConsPerc end,
 						set = function(info, val) db.manaConsPerc = val end,
 					},
-					manaDP = {
+					__manaDP = {
 						order = 35,
+						type = "header",
+						name = "Divine Plea Mana Settings",
+					},
+					____manaDP = {
+						order = 36,
+						type = "description",
+						name = "If your mana is above the specified value Divine Plea will be ignored in FCFS detection. A value of 0 deactivates the check.\nFixed value takes precedence so if you want to use the percentage value, set fixed one to 0.",
+					},
+					manaDP = {
+						order = 37,
 						type = "range",
-						name = "Maximum mana for Divine Plea",
+						name = "Fixed value",
 						min = 0,
 						max = 10000,
 						step = 1,
@@ -290,24 +348,51 @@ function clcret:InitOptions()
 						set = function(info, val) db.manaDP = val end,
 					},
 					manaDPPerc = {
-						order = 40,
+						order = 38,
 						type = "range",
-						name = "% Maximum mana for Divine Plea",
+						name = "Percentage",
 						min = 0,
 						max = 100,
 						step = 1,
 						get = function(info) return db.manaDPPerc end,
 						set = function(info, val) db.manaDPPerc = val end,
 					},
-					gcdDpSs = {
+					__gcdDpSs = {
 						order = 50,
+						type = "header",
+						name = "Extra Delay for DP/SS",
+					},
+					____gcdDpSs = {
+						order = 51,
+						type = "description",
+						name = "In case you want to use your non damaging abilities (Divine Plea and Sacred Shield) only when it won't delay at all the other abilities adjust this value. A value of 0 disables the check.",
+					},
+					gcdDpSs = {
+						order = 52,
 						type = "range",
 						min = 0,
 						max = 2,
 						step = 0.1,
-						name = "Extra delay for DP and SS",
+						name = "Extra delay (in seconds)",
 						get = function(info) return db.gcdDpSs end,
 						set = function(info, val) db.gcdDpSs = val end,
+					},
+					____dpssLatenct = {
+						order = 53,
+						type = "description",
+						name = "Experimental",
+					},
+					dpssLatency = {
+						order = 54, 
+						type = "range",
+						name = "Divine Plea and SS Latency",
+						min = 0,
+						max = 1,
+						step = 0.01,
+						get = function(info) return db.dpssLatency end,
+						set = function(info, val)
+							db.dpssLatency = val
+						end,
 					},
 				},
 			},
@@ -318,13 +403,26 @@ function clcret:InitOptions()
 				order = 10,
 				name = "FCFS",
 				type = "group",
-				args = {},
+				args = {
+					ret = {
+						order = 1,
+						name = "Retribution",
+						type = "group",
+						args = {},
+					},
+					prot = {
+						order = 5,
+						name = "Protection",
+						type = "group",
+						args = {},
+					},
+				},
 			},
 			
 			-- prot fcfs
 			pfcfs = {
 				order = 11,
-				name = "ProtFCFS",
+				name = "Protection FCFS",
 				type = "group",
 				args = {},
 			},
@@ -349,7 +447,7 @@ function clcret:InitOptions()
 			-- sov tracking
 			sov = {
 				order = 40,
-				name = "SoV Tracking",
+				name = "SoV/SoCorr Tracking",
 				type = "group",
 				args = {
 					enabled = {
@@ -784,12 +882,12 @@ function clcret:InitOptions()
 		}
 	end
 
-	local root = self.options.args.fcfs.args
+	local root = self.options.args.fcfs.args.ret.args
 	for i = 1, 10 do
 		root["p"..i] = {
+			order = i,
 			name = "",
 			type = "select",
-			order = i,
 			get = function(info) return db.fcfs[i] end,
 			set = function(info, val)
 				db.fcfs[i] = val
@@ -799,9 +897,10 @@ function clcret:InitOptions()
 		}
 	end
 	
-	root = self.options.args.pfcfs.args
+	root = self.options.args.fcfs.args.prot.args
 	for i = 1, 2 do
 		root["p" .. i] = {
+			order = i,
 			name = "6",
 			type = "select",
 			get = function(info) return db.pfcfs[i] end,
@@ -816,6 +915,7 @@ function clcret:InitOptions()
 	for i = 3, 5 do
 		root["p" .. i] = {
 			name = "9",
+			order = i,
 			type = "select",
 			get = function(info) return db.pfcfs[i] end,
 			set = function(info, val)
@@ -825,4 +925,17 @@ function clcret:InitOptions()
 			values = { hs = clcret.protSpells["hs"].name, cons = clcret.protSpells["cons"].name, jol = clcret.protSpells["jol"].name }
 		}
 	end
+	
+	-- the init stuff
+	local AceConfig = LibStub("AceConfig-3.0")
+	AceConfig:RegisterOptionsTable("clcret", self.options)
+	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+	AceConfigDialog:AddToBlizOptions("clcret", "clcret", nil, "global")
+	AceConfigDialog:AddToBlizOptions("clcret", "Appearance", "clcret", "appearance")
+	AceConfigDialog:AddToBlizOptions("clcret", "Behavior", "clcret", "behavior")
+	AceConfigDialog:AddToBlizOptions("clcret", "FCFS", "clcret", "fcfs")
+	AceConfigDialog:AddToBlizOptions("clcret", "Aura Buttons", "clcret", "auras")
+	AceConfigDialog:AddToBlizOptions("clcret", "Layout", "clcret", "layout")
+	AceConfigDialog:AddToBlizOptions("clcret", "SoV Tracking", "clcret", "sov")
 end
+

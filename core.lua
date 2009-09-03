@@ -74,14 +74,15 @@ clcret.spells = {
 	dp 		= { id = 54428 },		-- divine plea
 	ss 		= { id = 53601 },		-- sacred shield
 	hw		= { id = 2812  },		-- holy wrath
+	sor 	= { id = 53600 },
 }
 
 clcret.protSpells = {
-	sor = { id = "53600" },			-- shield of righteousness
-	hotr = { id = "53595" },		-- hammer of the righteous
-	hs = { id = "20925" },			-- holy shield
-	cons = { id = "48819" },		-- consecration
-	jol = { id = "53408" },			-- judgement (using wisdom atm)
+	sor 	= { id = 53600 },			-- shield of righteousness
+	hotr 	= { id = 53595 },		-- hammer of the righteous
+	hs 		= { id = 20925 },			-- holy shield
+	cons 	= { id = 48819 },		-- consecration
+	jol 	= { id = 53408 },			-- judgement (using wisdom atm)
 }
 
 -- used for the highlight lock on skill use
@@ -497,10 +498,7 @@ function clcret:Init()
 	self:InitSpells()
 	self:InitOptions()
 	
-	local AceConfig = LibStub("AceConfig-3.0")
-	AceConfig:RegisterOptionsTable("clcret", self.options)
-	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-	AceConfigDialog:AddToBlizOptions("clcret")
+	
 	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
 	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
 	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
@@ -1054,7 +1052,7 @@ function clcret:CheckQueueProt()
 			clcretSB1:LockHighlight()
 		end
 		lastgcd = msgcd
-		if startgcd >= msgcd and (gcd > 1.5 - db.latency) then
+		if (startgcd >= msgcd) and (gcd > 1) then
 			return
 		end
 		clcretSB1:UnlockHighlight()
@@ -1158,7 +1156,7 @@ function clcret:CheckQueueRet()
 			clcretSB1:LockHighlight()
 		end
 		lastgcd = msgcd
-		if startgcd >= msgcd and (gcd > 1.5 - db.latency) then
+		if (startgcd >= msgcd) and (gcd > 1) then
 			return
 		end
 		clcretSB1:UnlockHighlight()
