@@ -1729,6 +1729,8 @@ function clcret:UpdateSovBarsLayout()
 			bar.icon:SetPoint("CENTER", bar, "CENTER", 0, 0)
 			bar.labelStack:SetPoint("BOTTOMRIGHT", bar.icon, "BOTTOMRIGHT", 3, -3)
 			
+			bar.labelStack:SetParent(bar.cooldown)
+			
 			fontFace, _, fontFlags = bar.labelStack:GetFont()
 			bar.labelStack:SetFont(fontFace, max(5, opt.height / 2), fontFlags)
 			
@@ -1764,6 +1766,8 @@ function clcret:UpdateSovBarsLayout()
 			
 			bar:SetWidth(opt.width - opt.height)
 			bar:SetHeight(opt.height)
+			
+			bar.labelStack:SetParent(bar)
 			
 			bar.icon:SetPoint("RIGHT", bar, "LEFT", 0, 0)
 			bar.labelStack:SetPoint("CENTER", bar.icon, "CENTER", 0, 0)
@@ -1839,7 +1843,7 @@ function clcret:CreateSovBar(index)
 	frame.cooldown:SetDrawEdge(true)
 	
 	-- stack
-	frame.labelStack = frame.cooldown:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
+	frame.labelStack = frame:CreateFontString(nil, "OVERLAY", "TextStatusBarText")
 	
 	-- other vars used
 	frame.start = 0
