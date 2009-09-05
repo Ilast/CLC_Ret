@@ -12,6 +12,11 @@ local MAX_AURAS = 10
 local MAX_SOVBARS = 5
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
 local BORDERTEX = "Interface\\AddOns\\clcret\\textures\\border"
+local borderType = {
+	"Interface\\AddOns\\clcret\\textures\\border",					-- light
+	"Interface\\AddOns\\clcret\\textures\\border_medium",			-- medium
+	"Interface\\AddOns\\clcret\\textures\\border_heavy"				-- heavy
+}
 
 -- cleanse spell name, used for gcd
 local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> 
@@ -99,6 +104,7 @@ clcret.defaults = {
 		zoomIcons = true,
 		noBorder = false,
 		borderColor = {0, 0, 0, 1},
+		borderType = 2,
 		x = 500,
 		y = 300,
 		scale = 1,
@@ -329,13 +335,13 @@ local function OnUpdate(this, elapsed)
 		end
 	end
 	
-	--[[ DEBUG
+	---[[ DEBUG
 	clcret:UpdateDebugFrame()
 	--]]
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
---[[ DEBUG
+---[[ DEBUG
 
 function clcret:GetFastLeft(spell)
 	local start, duration = GetSpellCooldown(spell)
@@ -530,7 +536,7 @@ function clcret:Init()
 	end
 	
 	
-	--[[ DEBUG
+	---[[ DEBUG
 	self:InitDebugFrame()
 	--]]
 end
@@ -1197,7 +1203,7 @@ function clcret:CheckQueueRet()
 		
 		-- adjust to gcd
 		v.cd = v.cd - gcd
-		--[[ DEBUG
+		---[[ DEBUG
 		v.xcd = v.cd
 		--]]
 	end
@@ -1307,6 +1313,7 @@ function clcret:UpdateButtonLayout(button, opt)
 	button:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x / scale, opt.y / scale)
 	button:SetAlpha(opt.alpha)
 	button.border:SetVertexColor(unpack(db.borderColor))
+	button.border:SetTexture(borderType[db.borderType])
 	
 	button.stack:ClearAllPoints()
 	button.stack:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 4, 0)
@@ -1415,6 +1422,7 @@ function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, of
 	button.border:SetAllPoints()
 	button.border:SetTexture(BORDERTEX)
 	button.border:SetVertexColor(unpack(db.borderColor))
+	button.border:SetTexture(borderType[db.borderType])
 	
 	button.cooldown = CreateFrame("Cooldown", "$parentCooldown", button)
 	button.cooldown:SetAllPoints(button)
@@ -1749,6 +1757,7 @@ function clcret:UpdateSovBarsLayout()
 			else
 				bar.border:SetAllPoints(bar)
 				bar.border:SetVertexColor(unpack(db.borderColor))
+				bar.border:SetTexture(borderType[db.borderType])
 				bar.border:Show()
 			end
 			

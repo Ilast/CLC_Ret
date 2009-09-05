@@ -132,13 +132,26 @@ function clcret:InitOptions()
 							clcret:UpdateSovBarsLayout()
 						end,
 					},
+					borderType = {
+						order = 5,
+						type = "select",
+						name = "Border type",
+						get = function(info) return db.borderType end,
+						set = function(info, val)
+							db.borderType = val
+							clcret:UpdateSkillButtonsLayout()
+							clcret:UpdateAuraButtonsLayout()
+							clcret:UpdateSovBarsLayout()
+						end,
+						values = { "Light", "Medium", "Heavy" }
+					},
 					__hudAspect = {
 						type = "header",
 						name = "HUD Aspect",
-						order = 5,
+						order = 10,
 					},
 					scale = {
-						order = 6,
+						order = 11,
 						type = "range",
 						name = "Scale",
 						min = 0,
@@ -151,7 +164,7 @@ function clcret:InitOptions()
 						end,
 					},
 					alpha = {
-						order = 7,
+						order = 12,
 						type = "range",
 						name = "Alpha",
 						min = 0,
@@ -166,15 +179,15 @@ function clcret:InitOptions()
 					_hudPosition = {
 						type = "header",
 						name = "HUD Position",
-						order = 9,
+						order = 13,
 					},
 					x = {
-						order = 10,
+						order = 20,
 						type = "range",
 						name = "X",
 						min = 0,
 						max = 5000,
-						step = 1,
+						step = 21,
 						get = function(info) return db.x end,
 						set = function(info, val)
 							db.x = val
@@ -182,7 +195,7 @@ function clcret:InitOptions()
 						end,
 					},
 					y = {
-						order = 11,
+						order = 22,
 						type = "range",
 						name = "Y",
 						min = 0,
@@ -195,7 +208,7 @@ function clcret:InitOptions()
 						end,
 					},
 					align = {
-						order = 12,
+						order = 23,
 						type = "execute",
 						name = "Center Horizontally",
 						func = function()
@@ -273,6 +286,7 @@ function clcret:InitOptions()
 					rangePerSkill = {
 						order = 17,
 						type = "toggle",
+						width = "full",
 						name = "Check range for each skill",
 						get = function(info) return db.rangePerSkill end,
 						set = function(info, val) db.rangePerSkill = val end,
@@ -432,7 +446,13 @@ function clcret:InitOptions()
 				order = 30,
 				name = "Aura Buttons",
 				type = "group",
-				args = {},
+				args = {
+					____info = {
+						order = 1,
+						type = "description",
+						name = "These are cooldown watchers. You can select a player skill, an item or a buff/debuff (on a valid target) to watch.\nItems and skills only need a valid item/spell id (or name) and the type. Target (the target to scan) and Cast by player (filters or not buffs cast by others) are specific to buffs/debuffs.\nValid targets are the ones that work with /cast [target=name] macros. For example: player, target, focus, raid1, raid1target.",
+					},
+				},
 			},
 		
 			-- layout
@@ -734,7 +754,7 @@ function clcret:InitOptions()
 	for i = 1, MAX_AURAS do
 		-- aura options
 		self.options.args.auras.args["aura" .. i] = {
-			order = i,
+			order = i + 10,
 			type = "group",
 			name = "Aura Button " .. i,
 			args = {
