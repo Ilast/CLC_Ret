@@ -1049,9 +1049,10 @@ function clcret:CheckQueueProt()
 	end
 	
 		
-	-- highlight when used
+		-- highlight when used
 	if db.highlight then
 		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
+		if not gcdDuration then return end -- try to solve respec issues
 		if gcdStart > 0 then
 			gcdMS = gcdStart + gcdDuration - ctime
 		else
@@ -1160,6 +1161,7 @@ function clcret:CheckQueueRet()
 	-- highlight when used
 	if db.highlight then
 		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
+		if not gcdDuration then return end -- try to solve respec issues
 		if gcdStart > 0 then
 			gcdMS = gcdStart + gcdDuration - ctime
 		else
