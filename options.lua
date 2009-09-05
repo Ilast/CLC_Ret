@@ -69,9 +69,19 @@ function clcret:InitOptions()
 						get = function(info) return db.fullDisable end,
 						set = function(info, val) clcret:FullDisableToggle() end,
 					},
+					__protEnabled = {
+						order = 30,
+						type = "header",
+						name = "Protection Module",
+					},
+					____protEnabled = {
+						order = 31,
+						type = "description",
+						name = "|cffff0000WARNING|cffffffff The protection module wasn't tested at all in the new version. It's also very unlikely that I will test it anytime soon.\nSo use it at your own risk and let me know what problems there you have with it (tickets or comments on the site where you downloaded the addon from.",
+					},
 					-- full disable toggle
 					protEnabled = {
-						order = 30,
+						order = 32,
 						width = "full",
 						type = "toggle",
 						name = "Enable prot module",
@@ -390,23 +400,6 @@ function clcret:InitOptions()
 						name = "Extra delay (in seconds)",
 						get = function(info) return db.gcdDpSs end,
 						set = function(info, val) db.gcdDpSs = val end,
-					},
-					____dpssLatenct = {
-						order = 53,
-						type = "description",
-						name = "Experimental",
-					},
-					dpssLatency = {
-						order = 54, 
-						type = "range",
-						name = "Divine Plea and SS Latency",
-						min = 0,
-						max = 1,
-						step = 0.01,
-						get = function(info) return db.dpssLatency end,
-						set = function(info, val)
-							db.dpssLatency = val
-						end,
 					},
 				},
 			},

@@ -93,6 +93,8 @@ clcret.protSpells = {
 -- used for the highlight lock on skill use
 local lastgcd = 0
 local startgcd = -1
+local lastMS = ""
+local gcdMS = 0
 
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -143,8 +145,6 @@ clcret.defaults = {
 		
 		-- behavior
 		highlight = true,
-		latency = 0.15,
-		dpssLatency = 0.15,
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
 		manaCons = 0,
@@ -335,13 +335,13 @@ local function OnUpdate(this, elapsed)
 		end
 	end
 	
-	---[[ DEBUG
+	--[[ DEBUG
 	clcret:UpdateDebugFrame()
 	--]]
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
----[[ DEBUG
+--[[ DEBUG
 
 function clcret:GetFastLeft(spell)
 	local start, duration = GetSpellCooldown(spell)
@@ -361,6 +361,12 @@ function clcret:UpdateDebugFrame()
 	line.icon:SetTexture(GetSpellTexture("Cleanse"))
 	line.text1:Show()
 	line.text1:SetText(string.format("%.3f", gcd))
+	line.text2:Show()
+	line.text2:SetText(string.format("%.3f", lastgcd))
+	line.text3:Show()
+	line.text3:SetText(string.format("%.3f", startgcd))
+	line.text4:Show()
+	line.text4:SetText(string.format("%.3f", gcdMS))
 	
 	for i = 1, 9 do
 		line = clcret.debugLines[i + 1]
@@ -373,8 +379,8 @@ function clcret:UpdateDebugFrame()
 			line.text2:SetText(string.format("%.3f", self:GetFastLeft(pq[i].name) - gcd))
 			line.text3:Show()
 			line.text3:SetText(string.format("%.3f", pq[i].xcd))
-			-- line.text4:Show()
-			-- line.text4:SetText(string.format("%.3f", pq[i].cd + 3))
+			line.text4:Show()
+			line.text4:SetText(string.format("%.3f", pq[i].cd))
 			-- line.text5:Show()
 			-- line.text5:SetText(string.format("%.3f", pq[i].cd + 1.5))
 		else
@@ -536,7 +542,7 @@ function clcret:Init()
 	end
 	
 	
-	---[[ DEBUG
+	--[[ DEBUG
 	self:InitDebugFrame()
 	--]]
 end
@@ -1043,25 +1049,30 @@ function clcret:CheckQueueProt()
 	end
 	
 		
+	-- highlight when used
 	if db.highlight then
-		local msgcd
 		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
 		if gcdStart > 0 then
-			msgcd = gcdStart + gcdDuration - ctime
+			gcdMS = gcdStart + gcdDuration - ctime
 		else
-			msgcd = 0
+			gcdMS = 0
 		end
 		
-		if lastgcd < msgcd and msgcd <= 1.5 then
-			-- pressed main skill
-			startgcd = msgcd
-			clcretSB1:LockHighlight()
+		if lastMS == dq[1] then
+			if lastgcd < gcdMS and gcdMS <= 1.5 then
+				-- pressed main skill
+				startgcd = gcdMS
+				clcretSB1:LockHighlight()
+			end
+			lastgcd = gcdMS
+			if (startgcd >= gcdMS) and (gcd > 1) then
+				self:UpdateUI()
+				return
+			end
+			clcretSB1:UnlockHighlight()
 		end
-		lastgcd = msgcd
-		if (startgcd >= msgcd) and (gcd > 1) then
-			return
-		end
-		clcretSB1:UnlockHighlight()
+		lastMS = dq[1]
+		lastgcd = gcdMS
 	end
 	
 	
@@ -1148,24 +1159,28 @@ function clcret:CheckQueueRet()
 
 	-- highlight when used
 	if db.highlight then
-		local msgcd
 		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
 		if gcdStart > 0 then
-			msgcd = gcdStart + gcdDuration - ctime
+			gcdMS = gcdStart + gcdDuration - ctime
 		else
-			msgcd = 0
+			gcdMS = 0
 		end
 		
-		if lastgcd < msgcd and msgcd <= 1.5 then
-			-- pressed main skill
-			startgcd = msgcd
-			clcretSB1:LockHighlight()
+		if lastMS == dq[1] then
+			if lastgcd < gcdMS and gcdMS <= 1.5 then
+				-- pressed main skill
+				startgcd = gcdMS
+				clcretSB1:LockHighlight()
+			end
+			lastgcd = gcdMS
+			if (startgcd >= gcdMS) and (gcd > 1) then
+				self:UpdateUI()
+				return
+			end
+			clcretSB1:UnlockHighlight()
 		end
-		lastgcd = msgcd
-		if (startgcd >= msgcd) and (gcd > 1) then
-			return
-		end
-		clcretSB1:UnlockHighlight()
+		lastMS = dq[1]
+		lastgcd = gcdMS
 	end
 	
 	-- update cooldowns
@@ -1194,26 +1209,29 @@ function clcret:CheckQueueRet()
 		elseif v.alias == "dp" then
 			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then
 				v.cd = 100
-			else
-				v.cd = v.cd + db.gcdDpSs
 			end
-		elseif v.alias == "ss"then
-			v.cd = v.cd + db.gcdDpSs
 		end
 		
 		-- adjust to gcd
 		v.cd = v.cd - gcd
-		---[[ DEBUG
+		--[[ DEBUG
 		v.xcd = v.cd
 		--]]
 	end
-
+	
+	--[[
 	self:GetBest(1)
 	self:GetBest(2)
+	--]]
+	
+	---[[
+	self:GetSkills()
+	--]]
 	
 	self:UpdateUI()
 end
 -- gets best skill from pq according to priority and cooldown
+--[[
 function clcret:GetBest(pos)
 	local cd, index, v
 	index = 1
@@ -1241,6 +1259,67 @@ function clcret:GetBest(pos)
 	dq[pos] = pq[index].name
 	pq[index].cd = 100
 end
+--]]
+
+---[[
+--	algorithm:
+--		get min cooldown
+--		adjust all the others to cd - mincd - 1.5
+--		get min cooldown
+
+
+-- returns the lowest cooldown and skill index
+function clcret:GetMinCooldown()
+	local cd, index, v
+	index = 1
+	cd = pq[1].cd
+	
+	-- get min cooldown
+	for i = 1, numSpells do
+		v = pq[i]
+		-- if skill is a better choice change index
+		if (v.alias == "dp") or (v.alias == "ss") then	
+			-- special case with delay
+			if ((v.cd + db.gcdDpSs) < cd) or (((v.cd + db.gcdDpSs) == cd) and (i < index)) then
+				index = i
+				cd = v.cd
+			end
+		else
+			-- normal check
+			if (v.cd < cd) or ((v.cd == cd and i < index)) then
+				index = i
+				cd = v.cd
+			end
+		end
+	end
+	
+	return cd, index
+end
+
+-- gets first and 2nd skill in the queue
+function clcret:GetSkills()
+	local cd, index, v
+	
+	-- dq[1] = skill with shortest cooldown
+	cd, index = self:GetMinCooldown()
+	dq[1] = pq[index].name
+	pq[index].cd = 100
+	
+	-- adjust cd
+	cd = cd + 1.5
+	
+	-- substract the cd from prediction cooldowns
+	for i = 1, numSpells do
+		v = pq[i]
+		v.cd = max(0, v.cd - cd)
+	end
+	
+	-- dq[2] = get the skill with shortest cooldown
+	cd, index = self:GetMinCooldown()
+	dq[2] = pq[index].name
+end
+
+--]]
 -- ---------------------------------------------------------------------------------------------------------------------
 
 
