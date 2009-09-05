@@ -1461,7 +1461,8 @@ function clcret:InitUI()
 		buttons[i]:Show()
 	end
 	-- highlight for main skill
-	clcretSB1:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	-- clcretSB1:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+	clcretSB1:SetHighlightTexture("Interface\\Buttons\\CheckButtonHilight", "ADD")
 	self:InitAuraButtons()
 	
 	-- set scale
