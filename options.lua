@@ -274,7 +274,7 @@ function clcret:InitOptions()
 					____highlight = {
 						order = 11,
 						type = "description",
-						name = "Highlights the main skill when an action is performed until the server confirms the action.",
+						name = "Highlights the main skill when an action is performed until the server confirms the action.\nFor Blizzard's default buttons and some BF skins \"Checked\" state is a lot more visible than \"Highlight\" state. If that's the case, enable the 2nd option too.",
 					},
 					highlight = {
 						order = 12,
@@ -282,6 +282,13 @@ function clcret:InitOptions()
 						name = "Highlight on use",
 						get = function(info) return db.highlight end,
 						set = function(info, val) db.highlight = val end,
+					},
+					highlightChecked = {
+						order = 13,
+						type = "toggle",
+						name = "Use \"Checked\" state",
+						get = function(info) return db.highlightChecked end,
+						set = function(info, val) db.highlightChecked = val end,
 					},
 					__rangePerSkill = {
 						order = 15,

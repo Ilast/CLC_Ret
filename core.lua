@@ -145,6 +145,7 @@ clcret.defaults = {
 		
 		-- behavior
 		highlight = true,
+		highlightChecked = true,
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
 		manaCons = 0,
@@ -1172,7 +1173,11 @@ function clcret:CheckQueueRet()
 			if lastgcd < gcdMS and gcdMS <= 1.5 then
 				-- pressed main skill
 				startgcd = gcdMS
-				clcretSB1:LockHighlight()
+				if db.highlightChecked then
+					clcretSB1:SetChecked(true)
+				else
+					clcretSB1:LockHighlight()
+				end
 			end
 			lastgcd = gcdMS
 			if (startgcd >= gcdMS) and (gcd > 1) then
@@ -1180,6 +1185,7 @@ function clcret:CheckQueueRet()
 				return
 			end
 			clcretSB1:UnlockHighlight()
+			clcretSB1:SetChecked(false)
 		end
 		lastMS = dq[1]
 		lastgcd = gcdMS
@@ -1452,17 +1458,19 @@ function clcret:InitUI()
 
 	self.frame = frame
 	
-	-- init the buttons
+	-- init main skill button
 	local opt
-	for i = 1, 2 do
-		opt = db.layout["button" .. i]
-		buttons[i] = self:CreateButton("SB" .. i, opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills")
-		buttons[i]:SetAlpha(opt.alpha)
-		buttons[i]:Show()
-	end
-	-- highlight for main skill
-	-- clcretSB1:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-	clcretSB1:SetHighlightTexture("Interface\\Buttons\\CheckButtonHilight", "ADD")
+	opt = db.layout["button1"]
+	buttons[1] = self:CreateButton("SB1", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills", true)
+	buttons[1]:SetAlpha(opt.alpha)
+	buttons[1]:Show()
+	
+	-- init secondary skill button
+	opt = db.layout["button2"]
+	buttons[2] = self:CreateButton("SB2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills")
+	buttons[2]:SetAlpha(opt.alpha)
+	buttons[2]:Show()
+	
 	self:InitAuraButtons()
 	
 	-- set scale
@@ -1488,9 +1496,16 @@ function clcret:InitAuraButtons()
 end
 
 -- create button
-function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, bfGroup)
+function clcret:CreateButton(name, size, point, parent, pointParent, offsetx, offsety, bfGroup, isChecked)
 	name = "clcret" .. name
-	local button = CreateFrame("Button", name , parent)
+	local button
+	if isChecked then
+		button = CreateFrame("CheckButton", name , parent)
+		button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+		button:SetCheckedTexture("Interface\\Buttons\\CheckButtonHilight", "ADD")
+	else
+		button = CreateFrame("Button", name , parent)
+	end
 	button:EnableMouse(false)
 	
 	button:SetWidth(64)
