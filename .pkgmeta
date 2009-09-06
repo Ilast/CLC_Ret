@@ -1,4 +1,4 @@
-﻿package-as: clcret
+﻿package-as: CLCRet
 
 ignore:
     - .pkgmeta
@@ -12,17 +12,20 @@ externals:
         tag: latest
     libs/AceAddon-3.0:
         url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceAddon-3.0  
-    libs/AceConfig-3.0:
-        url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceConfig-3.0
     libs/AceConsole-3.0:
         url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceConsole-3.0  
-    libs/AceGUI-3.0:
-        url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceGUI-3.0 
     libs/AceDB-3.0:
         url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceDB-3.0
     libs/AceEvent-3.0:
         url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceEvent-3.0
     libs/AceTimer-3.0:
         url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceTimer-3.0
-        
 
+    Options/libs/AceGUI-3.0:
+        url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceGUI-3.0         
+    Options/libs/AceConfig-3.0:
+        url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceConfig-3.0
+
+move-folders:
+    CLCRet/Options: CLCRet_Options
+    

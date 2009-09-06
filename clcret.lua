@@ -509,10 +509,43 @@ function clcret:Init()
 	self.scanFrequencySov = 1 / db.sov.updatesPerSecond
 
 	self:InitSpells()
-	self:InitOptions()
 	
+	--[[
+	--setup the options menu hook
+	local f = CreateFrame('Frame', nil, InterfaceOptionsFrame)
+	f:SetScript('OnShow', function(self)
+		LoadAddOn('CLCRet_Options')
+		self:SetScript('OnShow', nil)
+	end)
+	--self:InitOptions()
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("clcret", {
+			type = "group",
+			name = "clcret",
+			args = {
+				load = {
+					type = "execute",
+					name = "Load Options",
+					func = function() LoadAddOn("CLCRet_Options") end,
+				},
+			},
+		}
+	)
+	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("clcret")
+	--]]
 	
-	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("clcret") end)
+	-- dumb page in options with a load button
+	local optionFrame = CreateFrame("Frame", nil, UIParent)
+	optionFrame.name = "CLCRet"
+	local optionFrameLoad = CreateFrame("Button", nil, optionFrame, "UIPanelButtonTemplate")
+	optionFrameLoad:SetWidth(150)
+	optionFrameLoad:SetHeight(22)
+	optionFrameLoad:SetText("Load Options")
+	optionFrameLoad:SetPoint("TOPLEFT", 20, -20)
+	optionFrameLoad:SetScript("OnClick", function() LoadAddOn("CLCRet_Options") end)
+	InterfaceOptions_AddCategory(optionFrame)
+	-- chat command that points to our category
+	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("CLCRet") end)
+	
 	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
 	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
 	
@@ -524,7 +557,7 @@ function clcret:Init()
 	self:PLAYER_TALENT_UPDATE()
 	
 	if self.LBF then
-		self.LBF:RegisterSkinCallback('clcret', self.OnSkin, self)
+		self.LBF:RegisterSkinCallback("clcret", self.OnSkin, self)
 		self.LBF:Group("clcret", "Skills"):Skin(unpack(db.lbf.Skills))
 		self.LBF:Group("clcret", "Auras"):Skin(unpack(db.lbf.Auras))
 	end
