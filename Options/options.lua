@@ -1,7 +1,13 @@
-local MAX_AURAS = 10
-local function bprint(s)
-	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
+local function bprint(...)
+	local s = ""
+	for i = 1, select("#", ...) do
+		s = s .. " " .. tostring(select(i, ...))
+	end
+	DEFAULT_CHAT_FRAME:AddMessage("clcret.options: "..tostring(s))
 end
+
+local MAX_AURAS = 10
+local MAX_SOVBARS = 5
 
 local function GetSpellChoice()
 	local spellChoice = { none = "None" }
@@ -14,7 +20,6 @@ end
 
 
 local db = clcret.db.char
-local defaults = clcret.defaults
 
 local anchorPoints = { CENTER = "CENTER", TOP = "TOP", BOTTOM = "BOTTOM", LEFT = "LEFT", RIGHT = "RIGHT", TOPLEFT = "TOPLEFT", TOPRIGHT = "TOPRIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOMRIGHT = "BOTTOMRIGHT" }
 local execList = {
@@ -28,7 +33,7 @@ local execList = {
 }
 local skillButtonNames = { "Main skill", "Secondary skill" }
 
-clcret.options = {
+local options = {
 	type = "group",
 	name = "clcret",
 	args = {
@@ -667,7 +672,7 @@ clcret.options = {
 
 	-- add main buttons to layout
 for i = 1, 2 do
-	clcret.options.args.layout.args["button" .. i] = {
+	options.args.layout.args["button" .. i] = {
 		order = i,
 		name = skillButtonNames[i],
 		type = "group",
@@ -753,7 +758,7 @@ end
 -- add the buttons to options
 for i = 1, MAX_AURAS do
 	-- aura options
-	clcret.options.args.auras.args["aura" .. i] = {
+	options.args.auras.args["aura" .. i] = {
 		order = i + 10,
 		type = "group",
 		name = "Aura Button " .. i,
@@ -856,7 +861,7 @@ for i = 1, MAX_AURAS do
 	}
 	
 	-- layout
-	clcret.options.args.layout.args["aura" .. i] = {
+	options.args.layout.args["aura" .. i] = {
 		order = 10 + i,
 		type = "group",
 		name = "Aura Button " .. i,
@@ -926,7 +931,7 @@ for i = 1, MAX_AURAS do
 	}
 end
 
-local root = clcret.options.args.fcfs.args.ret.args
+local root = options.args.fcfs.args.ret.args
 for i = 1, 10 do
 	root["p"..i] = {
 		order = i,
@@ -941,7 +946,7 @@ for i = 1, 10 do
 	}
 end
 
-root = clcret.options.args.fcfs.args.prot.args
+root = options.args.fcfs.args.prot.args
 for i = 1, 2 do
 	root["p" .. i] = {
 		order = i,
@@ -983,7 +988,7 @@ for i = 1, #INTERFACEOPTIONS_ADDONCATEGORIES do
 end
 
 local AceConfig = LibStub("AceConfig-3.0")
-AceConfig:RegisterOptionsTable("CLCRet", clcret.options)
+AceConfig:RegisterOptionsTable("CLCRet", options)
 
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 AceConfigDialog:AddToBlizOptions("CLCRet", "CLCRet", nil, "global")
