@@ -72,15 +72,15 @@ clcret.spells = {
 	dp 		= { id = 54428 },		-- divine plea
 	ss 		= { id = 53601 },		-- sacred shield
 	hw		= { id = 2812  },		-- holy wrath
-	sor 	= { id = 53600 },
+	sor 	= { id = 53600 },		-- shield of righteousness
 }
 
 clcret.protSpells = {
-	sor 	= { id = 53600 },			-- shield of righteousness
+	sor 	= { id = 53600 },		-- shield of righteousness
 	hotr 	= { id = 53595 },		-- hammer of the righteous
-	hs 		= { id = 20925 },			-- holy shield
+	hs 		= { id = 20925 },		-- holy shield
 	cons 	= { id = 48819 },		-- consecration
-	jol 	= { id = 53408 },			-- judgement (using wisdom atm)
+	jol 	= { id = 53408 },		-- judgement (using wisdom atm)
 }
 
 -- used for the highlight lock on skill use
@@ -88,6 +88,10 @@ local lastgcd = 0
 local startgcd = -1
 local lastMS = ""
 local gcdMS = 0
+
+
+-- presets
+local MAX_PRESETS = 10
 
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -125,6 +129,26 @@ clcret.defaults = {
 			"none",
 			"none",
 			"none",
+		},
+		
+		-- presets for ret fcfs
+		presets = {},
+		
+		presetFrame = {
+			visible = false,
+			enableMouse = false,
+			expandDown = false,
+			alpha = 1,
+			width = 200,
+			height = 25,
+			x = 0,
+			y = 0,
+			point = "TOP",
+			pointParent = "BOTTOM",
+			backdropColor = { 0.1, 0.1, 0.1, 0.5 },
+			backdropBorderColor = { 0.4, 0.4, 0.4 },
+			fontSize = 13,
+			fontColor = { 1, 1, 1, 1 },
 		},
 		
 		-- prot fcfs
@@ -166,7 +190,7 @@ clcret.defaults = {
 				y = 0,
 				point = "BOTTOMLEFT",
 				pointParent = "BOTTOMRIGHT",
-			}
+			},
 		},
 		
 		-- aura buttons
@@ -292,6 +316,13 @@ for i = 5, MAX_AURAS do
 			point = "BOTTOM",
 			pointParent = "TOP",
 		},
+	}
+end
+-- blank presets
+for i = 1, MAX_PRESETS do 
+	clcret.defaults.char.presets[i] = {
+		name = "",
+		data = "",
 	}
 end
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -541,6 +572,7 @@ function clcret:Init()
 	
 	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
 	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
+	self:RegisterChatCommand("clcretlp", "Preset_LoadByName") -- load the specified preset
 	
 	self:UpdateEnabledAuraButtons()
 	
@@ -609,6 +641,7 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- print fcfs
 function clcret:DisplayFCFS()
+	bprint("Active Retribution FCFS:")
 	for i, data in ipairs(pq) do
 		bprint(i .. " " .. data.name)
 	end
@@ -1497,7 +1530,13 @@ function clcret:InitUI()
 	buttons[2]:SetAlpha(opt.alpha)
 	buttons[2]:Show()
 	
+	-- aura buttons
 	self:InitAuraButtons()
+	
+	-- preset frame
+	if db.presetFrame.visible then
+		self:PresetFrame_Init()
+	end
 	
 	-- set scale
 	frame:SetScale(db.scale)
@@ -1623,6 +1662,223 @@ function clcret:FullDisableToggle()
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------
+
+-- PRESET FUNCTIONS
+-- ---------------------------------------------------------------------------------------------------------------------
+
+function clcret:PresetFrame_Init()
+	local opt = db.presetFrame
+	
+	local backdrop = {
+		bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+		tile = true, tileSize = 16, edgeSize = 16,
+		insets = { left = 3, right = 3, top = 5, bottom = 3 }
+	}
+
+	-- frame
+	local frame = CreateFrame("Button", nil, clcretFrame)
+	self.presetFrame = frame
+	
+	frame:EnableMouse(opt.enableMouse)
+	frame:SetBackdrop(backdrop)
+	frame:SetFrameStrata("FULLSCREEN_DIALOG")
+	
+	-- fontstring
+	local fs = frame:CreateFontString(nil, nil, "GameFontHighlight")
+	frame.text = fs
+	
+	-- popup frame
+	local popup = CreateFrame("Frame", nil, frame)
+	self.presetPopup = popup
+	
+	popup:Hide()
+	popup:SetBackdrop(backdrop)
+	popup:SetFrameStrata("FULLSCREEN_DIALOG")
+	
+	-- buttons for the popup frame
+	local button
+	self.presetButtons = {}
+	for i = 1, MAX_PRESETS do
+		button = CreateFrame("Button", nil, popup)
+		self.presetButtons[i] = button
+		
+		button.highlightTexture = button:CreateTexture(nil, "HIGHLIGHT")
+		button.highlightTexture:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+		button.highlightTexture:SetBlendMode("ADD")
+		button.highlightTexture:SetAllPoints()
+		
+		button.name = button:CreateFontString(nil, nil, "GameFontHighlight")
+		button.name:SetText(db.presets[i].name)
+		
+		button:SetScript("OnClick", function()
+			self:Preset_Load(i)
+			popup:Hide()
+		end)
+	end
+	
+	-- toggle popup on click
+	frame:SetScript("OnClick", function()
+		if popup:IsVisible() then
+			popup:Hide()
+		else
+			popup:Show()
+		end
+	end)
+	
+	-- update the layout
+	self:PresetFrame_UpdateLayout()
+	
+	-- update the preset
+	self:PresetFrame_Update()
+end
+
+function clcret:PresetFrame_UpdateMouse()
+	self.presetFrame:EnableMouse(db.presetFrame.enableMouse)
+end
+
+-- update layout
+function clcret:PresetFrame_UpdateLayout()
+	local opt = db.presetFrame
+
+	-- preset frame
+	local frame = self.presetFrame
+		
+	frame:SetWidth(opt.width)
+	frame:SetHeight(opt.height)
+	frame:ClearAllPoints()
+	frame:SetPoint(opt.point, clcretFrame, opt.pointParent, opt.x, opt.y)
+	
+	frame:SetBackdropColor(unpack(opt.backdropColor))
+	frame:SetBackdropBorderColor(unpack(opt.backdropBorderColor))
+	
+	frame.text:SetFont(STANDARD_TEXT_FONT, opt.fontSize)
+	frame.text:SetVertexColor(unpack(opt.fontColor))
+	
+	frame.text:SetAllPoints(frame)
+	frame.text:SetJustifyH("CENTER")
+	frame.text:SetJustifyV("MIDDLE")
+	
+	-- popup
+	local popup = self.presetPopup
+	popup:SetBackdropColor(unpack(opt.backdropColor))
+	popup:SetBackdropBorderColor(unpack(opt.backdropBorderColor))
+	
+	popup:SetWidth(opt.width)
+	popup:SetHeight((opt.fontSize + 7) * MAX_PRESETS + 40)
+	popup:ClearAllPoints()
+	if opt.expandDown then
+		popup:SetPoint("TOP", frame, "BOTTOM", 0, 0)
+	else
+		popup:SetPoint("BOTTOM", frame, "TOP", 0, 0)
+	end
+	
+	local button
+	for i = 1, MAX_PRESETS do
+		button = self.presetButtons[i]
+	
+		button:SetWidth(opt.width - 20)
+		button:SetHeight(opt.fontSize + 7)
+		button:ClearAllPoints()
+		button:SetPoint("TOPLEFT", popup, "TOPLEFT", 10, -10 - (opt.fontSize + 9) * (i - 1))
+
+		button.name:SetJustifyH("LEFT")
+		button.name:SetJustifyV("MIDDLE")
+		button.name:SetAllPoints()
+		button.name:SetVertexColor(unpack(opt.fontColor))
+		
+		button.name:SetFont(STANDARD_TEXT_FONT, opt.fontSize)
+	end
+	
+end
+
+-- checks if the current rotation is in any of the presets and updates text
+function clcret:PresetFrame_Update()
+	local t = {}
+	for i = 1, #pq do
+		t[i] = pq[i].alias
+	end
+	local rotation = table.concat(t, " ")
+	
+	local preset = "no preset"
+	for i = 1, MAX_PRESETS do
+		-- bprint(rotation, " | ", db.presets[i].data)
+		if db.presets[i].data == rotation and rotation ~= "" then
+			preset = db.presets[i].name
+			break
+		end
+	end
+	
+	self.presetFrame.text:SetText(preset)
+end
+
+-- toggles show and hide
+function clcret:PresetFrame_Toggle()
+	-- the frame is not loaded by default, so check if init took place
+	if not self.presetFrame then
+		-- need to do init
+		return self:PresetFrame_Init()
+	end
+		
+
+
+	if self.presetFrame:IsVisible() then
+		self.presetFrame:Hide()
+	else
+		self.presetFrame:Show()
+	end
+	db.presetFrame.visible = self.presetFrame:IsVisible()
+end
+
+-- load a preset
+function clcret:Preset_Load(index)
+	local list = { strsplit(" ", db.presets[index].data) }
+
+	local num = 0
+	for i = 1, #list do
+		if self.spells[list[i]] then
+			num = num + 1
+			db.fcfs[num] = list[i]
+		end
+	end
+	
+	-- none on the rest
+	if num < 10 then
+		for i = num + 1, 10 do
+			db.fcfs[i] = "none"
+		end
+	end
+	
+	-- redo queue
+	self:UpdateFCFS()
+	-- self:DisplayFCFS()
+	
+	self:PresetFrame_Update()
+end
+
+-- loads a prset by name (used for cmd function)
+function clcret:Preset_LoadByName(name)
+	name = string.lower(strtrim(name))
+	for i = 1, MAX_PRESETS do
+		if name == string.lower(db.presets[i].name) then return self:Preset_Load(i) end
+	end
+end
+
+-- save current to preset
+function clcret:Preset_SaveCurrent(index)
+	local t = {}
+	for i = 1, #pq do
+		t[i] = pq[i].alias
+	end
+	local rotation = table.concat(t, " ")
+	db.presets[index].data = rotation
+	
+	self:PresetFrame_Update()
+end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+
+
 
 -- HELPER FUNCTIONS
 -- ---------------------------------------------------------------------------------------------------------------------

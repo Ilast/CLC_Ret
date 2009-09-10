@@ -8,6 +8,7 @@ end
 
 local MAX_AURAS = 10
 local MAX_SOVBARS = 5
+local MAX_PRESETS = 10
 
 local function GetSpellChoice()
 	local spellChoice = { none = "None" }
@@ -20,6 +21,7 @@ end
 
 
 local db = clcret.db.char
+local root
 
 local anchorPoints = { CENTER = "CENTER", TOP = "TOP", BOTTOM = "BOTTOM", LEFT = "LEFT", RIGHT = "RIGHT", TOPLEFT = "TOPLEFT", TOPRIGHT = "TOPRIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOMRIGHT = "BOTTOMRIGHT" }
 local execList = {
@@ -438,12 +440,179 @@ local options = {
 			},
 		},
 		
-		-- prot fcfs
-		pfcfs = {
-			order = 11,
-			name = "Protection FCFS",
+		-- presets
+		presets = {
+			order = 20,
+			name = "Presets",
 			type = "group",
-			args = {},
+			args = {
+				____info = {
+					order = 1,
+					type = "description",
+					name = "This is a rudimentary presets module. Works only for retribution. It allows you to save current FCFS to a preset and to load it from there. You can also load the preset with |cffffff00/clcretlp preset name|cffffffff.\n"					
+				},
+				____presetFrameToggle = {
+					order = 10,
+					type = "description",
+					name = "The Preset Frame shows the name of the active preset. Second option allows you to select the prest from the frame with a popup menu.",
+				},
+				toggle = {
+					order = 11,
+					type = "execute",
+					name = "Toggle Preset Frame",
+					func = function() clcret:PresetFrame_Toggle() end,
+				},
+				enableMouse = {
+					order = 12,
+					type = "toggle",
+					name = "Select from frame",
+					get = function(info) return db.presetFrame.enableMouse end,
+					set = function(info, val)
+						db.presetFrame.enableMouse = val
+						clcret:PresetFrame_UpdateMouse()
+					end,
+				},
+				
+				-- preset frame Settings
+				presetFrameLayout = {
+					order = 50,
+					type = "group",
+					name = "Frame Layout",
+					args = {
+						expandDown = {
+							order = 20,
+							type = "toggle",
+							name = "Expand Down",
+							get = function(info) return db.presetFrame.expandDown end,
+							set = function(info, val)
+								db.presetFrame.expandDown = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						backdropColor = {
+							order = 30,
+							type = "color",
+							name = "Backdrop Color",
+							hasAlpha = true,
+							get = function(info) return unpack(db.presetFrame.backdropColor) end,
+							set = function(info, r, g, b, a)
+								db.presetFrame.backdropColor = {r, g, b, a}
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						backdropBorderColor = {
+							order = 31,
+							type = "color",
+							name = "Backdrop Border Color",
+							hasAlpha = true,
+							get = function(info) return unpack(db.presetFrame.backdropBorderColor) end,
+							set = function(info, r, g, b, a)
+								db.presetFrame.backdropBorderColor = {r, g, b, a}
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						fontSize = {
+							order = 40,
+							type = "range",
+							name = "Font Size",
+							min = 1,
+							max = 50,
+							step = 1,
+							get = function(info) return db.presetFrame.fontSize end,
+							set = function(info, val)
+								db.presetFrame.fontSize = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						fontColor = {
+							order = 41,
+							type = "color",
+							name = "Font Color",
+							hasAlpha = true,
+							get = function(info) return unpack(db.presetFrame.fontColor) end,
+							set = function(info, r, g, b, a)
+								db.presetFrame.fontColor = {r, g, b, a}
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						anchor = {
+							order = 50,
+							type = "select",
+							name = "Anchor",
+							get = function(info) return db.presetFrame.point end,
+							set = function(info, val)
+								db.presetFrame.point = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+							values = anchorPoints,
+						},
+						anchorTo = {
+							order = 51,
+							type = "select",
+							name = "Anchor To",
+							get = function(info) return db.presetFrame.pointParent end,
+							set = function(info, val)
+								db.presetFrame.pointParent = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+							values = anchorPoints,
+						},
+						x = {
+							order = 60,
+							type = "range",
+							name = "X",
+							min = -1000,
+							max = 1000,
+							step = 1,
+							get = function(info) return db.presetFrame.x end,
+							set = function(info, val)
+								db.presetFrame.x = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						y = {
+							order = 61,
+							type = "range",
+							name = "Y",
+							min = -1000,
+							max = 1000,
+							step = 1,
+							get = function(info) return db.presetFrame.y end,
+							set = function(info, val)
+								db.presetFrame.y = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						width = {
+							order = 70,
+							type = "range",
+							name = "Width",
+							min = 1,
+							max = 1000,
+							step = 1,
+							get = function(info) return db.presetFrame.width end,
+							set = function(info, val)
+								db.presetFrame.width = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+						height = {
+							order = 71,
+							type = "range",
+							name = "Height",
+							min = 1,
+							max = 500,
+							step = 1,
+							get = function(info) return db.presetFrame.height end,
+							set = function(info, val)
+								db.presetFrame.height = val
+								clcret:PresetFrame_UpdateLayout()
+							end,
+						},
+					},
+				},
+				
+			},
 		},
 		
 					-- aura buttons
@@ -669,6 +838,53 @@ local options = {
 		},
 	},
 }
+
+-- add the presets
+root = options.args.presets.args
+for i = 1, MAX_PRESETS do
+	root["p" .. i] = {
+		order = 50 + i,
+		name = "Preset" .. i,
+		type = "group",
+		args = {
+			name = {
+				order = 10,
+				type = "input",
+				name = "Name",
+				get = function(info) return db.presets[i].name end,
+				set = function(info, val)
+					db.presets[i].name = strtrim(val),	
+					clcret:PresetFrame_Update()
+				end,
+			},
+			data = {
+				order = 20,
+				type = "input",
+				name = "Rotation",
+				get = function(info) return db.presets[i].data end,
+				set = function(info, val)
+					db.presets[i].data = strtrim(val),
+					clcret:PresetFrame_Update()
+				end
+			},
+			load = {
+				order = 30,
+				width = "half",
+				type = "execute",
+				name = "Load",
+				func = function() clcret:Preset_Load(i) end,
+			},
+			save = {
+				order = 40,
+				width = "half",
+				type = "execute",
+				name = "Save",
+				func = function() clcret:Preset_SaveCurrent(i) end,
+			},
+		},
+	}
+end
+
 
 	-- add main buttons to layout
 for i = 1, 2 do
@@ -931,7 +1147,7 @@ for i = 1, MAX_AURAS do
 	}
 end
 
-local root = options.args.fcfs.args.ret.args
+root = options.args.fcfs.args.ret.args
 for i = 1, 10 do
 	root["p"..i] = {
 		order = i,
@@ -995,6 +1211,7 @@ AceConfigDialog:AddToBlizOptions("CLCRet", "CLCRet", nil, "global")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Appearance", "CLCRet", "appearance")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Behavior", "CLCRet", "behavior")
 AceConfigDialog:AddToBlizOptions("CLCRet", "FCFS", "CLCRet", "fcfs")
+AceConfigDialog:AddToBlizOptions("CLCRet", "Presets", "CLCRet", "presets")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Aura Buttons", "CLCRet", "auras")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Layout", "CLCRet", "layout")
 AceConfigDialog:AddToBlizOptions("CLCRet", "SoV Tracking", "CLCRet", "sov")
