@@ -674,7 +674,11 @@ function clcret:EditQueue(args)
 	self:DisplayFCFS()
 	
 	if InterfaceOptionsFrame:IsVisible() then
-		InterfaceOptionsFrame_OpenToCategory("clcret")
+		InterfaceOptionsFrame_OpenToCategory("FCFS")
+	end
+	
+	if self.presetFrame then
+		self:PresetFrame_Update()
 	end
 end
 
@@ -1852,6 +1856,10 @@ function clcret:Preset_Load(index)
 	-- redo queue
 	self:UpdateFCFS()
 	-- self:DisplayFCFS()
+	
+	if InterfaceOptionsFrame:IsVisible() then
+		InterfaceOptionsFrame_OpenToCategory("FCFS")
+	end
 	
 	self:PresetFrame_Update()
 end

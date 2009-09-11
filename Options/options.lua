@@ -1157,6 +1157,7 @@ for i = 1, 10 do
 		set = function(info, val)
 			db.fcfs[i] = val
 			clcret:UpdateFCFS()
+			clcret:PresetFrame_Update()
 		end,
 		values = GetSpellChoice,
 	}
