@@ -1,9 +1,9 @@
 local function bprint(...)
-	local s = ""
+	local t = {}
 	for i = 1, select("#", ...) do
-		s = s .. " " .. tostring(select(i, ...))
+		t[i] = tostring(select(i, ...))
 	end
-	DEFAULT_CHAT_FRAME:AddMessage("clcret.options: "..tostring(s))
+	DEFAULT_CHAT_FRAME:AddMessage("CLCRet.options: " .. table.concat(t, " "))
 end
 
 local MAX_AURAS = 10

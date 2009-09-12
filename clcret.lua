@@ -1,9 +1,9 @@
 local function bprint(...)
-	local s = ""
+	local t = {}
 	for i = 1, select("#", ...) do
-		s = s .. " " .. tostring(select(i, ...))
+		t[i] = tostring(select(i, ...))
 	end
-	DEFAULT_CHAT_FRAME:AddMessage("clcret: "..tostring(s))
+	DEFAULT_CHAT_FRAME:AddMessage("CLCRet: " .. table.concat(t, " "))
 end
 
 clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0")
