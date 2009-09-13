@@ -813,10 +813,14 @@ function clcret:PLAYER_TALENT_UPDATE()
 	
 	if csRank == 1 then
 		self.spec = "Ret"
+		dq[1] = pq[1].name
+		dq[2] = pq[2].name
 		self:Enable()
 		self:UpdateShowMethod()
 	elseif (hotrRank == 1) and db.protEnabled then
 		self.spec = "Prot"
+		dq[1] = ppq[1].name
+		dq[2] = ppq[2].name
 		self:Enable()
 		self:UpdateShowMethod()
 	else
