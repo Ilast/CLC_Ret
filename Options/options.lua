@@ -853,7 +853,7 @@ for i = 1, MAX_PRESETS do
 				name = "Name",
 				get = function(info) return db.presets[i].name end,
 				set = function(info, val)
-					db.presets[i].name = strtrim(val),	
+					db.presets[i].name = strtrim(val)
 					clcret:PresetFrame_Update()
 				end,
 			},
@@ -863,7 +863,7 @@ for i = 1, MAX_PRESETS do
 				name = "Rotation",
 				get = function(info) return db.presets[i].data end,
 				set = function(info, val)
-					db.presets[i].data = strtrim(val),
+					db.presets[i].data = strtrim(val)
 					clcret:PresetFrame_Update()
 				end
 			},

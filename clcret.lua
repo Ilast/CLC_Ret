@@ -1818,6 +1818,20 @@ function clcret:PresetFrame_Update()
 	end
 	
 	self.presetFrame.text:SetText(preset)
+	
+	-- update the buttons
+	if self.presetButtons then
+		local button
+		for i = 1, MAX_PRESETS do
+			button = self.presetButtons[i]
+			if db.presets[i].name ~= "" then
+				button:SetText(db.presets[i].name)
+				button:Show()
+			else
+				button:Hide()
+			end
+		end
+	end
 end
 
 -- toggles show and hide
