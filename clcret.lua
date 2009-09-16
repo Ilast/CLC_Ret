@@ -1863,6 +1863,7 @@ end
 -- loads a prset by name (used for cmd function)
 function clcret:Preset_LoadByName(name)
 	name = string.lower(strtrim(name))
+	if name == "" then return end
 	for i = 1, MAX_PRESETS do
 		if name == string.lower(db.presets[i].name) then return self:Preset_Load(i) end
 	end
