@@ -6,6 +6,8 @@ local function bprint(...)
 	DEFAULT_CHAT_FRAME:AddMessage("CLCRet.options: " .. table.concat(t, " "))
 end
 
+clcret.optionsLoaded = true
+
 local MAX_AURAS = 10
 local MAX_SOVBARS = 5
 local MAX_PRESETS = 10

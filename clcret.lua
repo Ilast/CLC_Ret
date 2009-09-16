@@ -97,7 +97,7 @@ local MAX_PRESETS = 10
 -- ---------------------------------------------------------------------------------------------------------------------
 -- DEFAULT VALUES
 -- ---------------------------------------------------------------------------------------------------------------------
-clcret.defaults = {
+local defaults = {
 	char = {
 		-- layout settings for the main frame (the black box you toggle on and off)\
 		zoomIcons = true,
@@ -173,7 +173,7 @@ clcret.defaults = {
 		delayedStart = 5,
 		rangePerSkill = false,
 		
-		-- layout of the 2 skill button
+		-- layout of the 2 skill buttons
 		layout = {
 			button1 = {
 				size = 70,
@@ -300,7 +300,7 @@ clcret.defaults = {
 }
 -- blank rest of the auras buttons in default options
 for i = 5, MAX_AURAS do 
-	clcret.defaults.char.auras[i] = {
+	defaults.char.auras[i] = {
 		enabled = false,
 		data = {
 			exec = "AuraButtonExecNone",
@@ -320,7 +320,7 @@ for i = 5, MAX_AURAS do
 end
 -- blank presets
 for i = 1, MAX_PRESETS do 
-	clcret.defaults.char.presets[i] = {
+	defaults.char.presets[i] = {
 		name = "",
 		data = "",
 	}
@@ -505,9 +505,14 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- INIT
 -- ---------------------------------------------------------------------------------------------------------------------
+-- load if needed and show options
+local function ShowOptions()
+	if not clcret.optionsLoaded then LoadAddOn("CLCRet_Options") end
+	InterfaceOptionsFrame_OpenToCategory("CLCRet")
+end
 function clcret:OnInitialize()
 	-- SAVEDVARS
-	self.db = LibStub("AceDB-3.0"):New("clcretDB", self.defaults)
+	self.db = LibStub("AceDB-3.0"):New("clcretDB", defaults)
 	db = self.db.char
 
 	-- TODO: worth using acetimer just for this ?
@@ -534,41 +539,14 @@ function clcret:Init()
 
 	self:InitSpells()
 	
-	--[[
-	--setup the options menu hook
-	local f = CreateFrame('Frame', nil, InterfaceOptionsFrame)
-	f:SetScript('OnShow', function(self)
-		LoadAddOn('CLCRet_Options')
-		self:SetScript('OnShow', nil)
-	end)
-	--self:InitOptions()
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("clcret", {
-			type = "group",
-			name = "clcret",
-			args = {
-				load = {
-					type = "execute",
-					name = "Load Options",
-					func = function() LoadAddOn("CLCRet_Options") end,
-				},
-			},
-		}
-	)
-	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("clcret")
-	--]]
-	
-	-- dumb page in options with a load button
+	-- blank options page for title
 	local optionFrame = CreateFrame("Frame", nil, UIParent)
 	optionFrame.name = "CLCRet"
 	local optionFrameLoad = CreateFrame("Button", nil, optionFrame, "UIPanelButtonTemplate")
-	optionFrameLoad:SetWidth(150)
-	optionFrameLoad:SetHeight(22)
-	optionFrameLoad:SetText("Load Options")
-	optionFrameLoad:SetPoint("TOPLEFT", 20, -20)
-	optionFrameLoad:SetScript("OnClick", function() LoadAddOn("CLCRet_Options") end)
 	InterfaceOptions_AddCategory(optionFrame)
+	optionFrame:SetScript("OnShow", ShowOptions)
 	-- chat command that points to our category
-	self:RegisterChatCommand("clcret", function() InterfaceOptionsFrame_OpenToCategory("CLCRet") end)
+	self:RegisterChatCommand("clcret", ShowOptions)
 	
 	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
 	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
