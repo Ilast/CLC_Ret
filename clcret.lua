@@ -93,6 +93,17 @@ local gcdMS = 0
 -- presets
 local MAX_PRESETS = 10
 
+local strataLevels = {
+	"BACKGROUND",
+	"LOW",
+	"MEDIUM",
+	"HIGH",
+	"DIALOG",
+	"FULLSCREEN",
+	"FULLSCREEN_DIALOG",
+	"TOOLTIP",
+}
+
 
 -- ---------------------------------------------------------------------------------------------------------------------
 -- DEFAULT VALUES
@@ -111,6 +122,7 @@ local defaults = {
 		show = "always",
 		fullDisable = false,
 		protEnabled = true,
+		strata = 3,
 		
 		lbf = {
 			Skills = {},
@@ -582,7 +594,10 @@ function clcret:Init()
 		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 	end
 	
-	
+	-- preset frame
+	if db.presetFrame.visible then
+		self:PresetFrame_Init()
+	end
 	--[[ DEBUG
 	self:InitDebugFrame()
 	--]]
@@ -1484,6 +1499,7 @@ end
 -- initialize main frame and all the buttons
 function clcret:InitUI()
 	local frame = CreateFrame("Frame", "clcretFrame", UIParent)
+	frame:SetFrameStrata(strataLevels[db.strata])
 	frame:SetWidth(db.layout.button1.size + 10)
 	frame:SetHeight(db.layout.button1.size + 10)
 	frame:SetPoint("BOTTOMLEFT", db.x, db.y)
@@ -1522,11 +1538,6 @@ function clcret:InitUI()
 	
 	-- aura buttons
 	self:InitAuraButtons()
-	
-	-- preset frame
-	if db.presetFrame.visible then
-		self:PresetFrame_Init()
-	end
 	
 	-- set scale
 	frame:SetScale(db.scale)

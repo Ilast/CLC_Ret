@@ -25,7 +25,28 @@ end
 local db = clcret.db.char
 local root
 
-local anchorPoints = { CENTER = "CENTER", TOP = "TOP", BOTTOM = "BOTTOM", LEFT = "LEFT", RIGHT = "RIGHT", TOPLEFT = "TOPLEFT", TOPRIGHT = "TOPRIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOMRIGHT = "BOTTOMRIGHT" }
+local strataLevels = {
+	"BACKGROUND",
+	"LOW",
+	"MEDIUM",
+	"HIGH",
+	"DIALOG",
+	"FULLSCREEN",
+	"FULLSCREEN_DIALOG",
+	"TOOLTIP",
+}
+
+local anchorPoints = {
+	CENTER = "CENTER",
+	TOP = "TOP",
+	BOTTOM = "BOTTOM",
+	LEFT = "LEFT",
+	RIGHT = "RIGHT",
+	TOPLEFT = "TOPLEFT",
+	TOPRIGHT = "TOPRIGHT",
+	BOTTOMLEFT = "BOTTOMLEFT",
+	BOTTOMRIGHT = "BOTTOMRIGHT"
+}
 local execList = {
 	AuraButtonExecNone = "None",
 	AuraButtonExecSkillVisibleAlways = "Skill always visible",
@@ -69,9 +90,36 @@ local options = {
 					values = { always = "Always", combat = "In Combat", valid = "Valid Target", boss = "Boss" }
 				},
 				
+				__strata = {
+					order = 15,
+					type = "header",
+					name = "",
+				},
+				____strata = {
+					order = 16,
+					type = "description",
+					name = "|cffff0000WARNING|cffffffff Changing Strata value will automatically reload your UI."
+				},
+				strata = {
+					order = 17,
+					type = "select",
+					name = "Frame Strata",
+					get = function(info) return db.strata end,
+					set = function(info, val)
+						db.strata = val
+						ReloadUI()
+					end,
+					values = strataLevels,
+				},
+				
 				-- full disable toggle
-				fullDisable = {
+				__fulldisable = {
 					order = 20,
+					type = "header",
+					name = "",
+				},
+				fullDisable = {
+					order = 21,
 					width = "full",
 					type = "toggle",
 					name = "Addon disabled",
