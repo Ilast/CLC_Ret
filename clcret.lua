@@ -543,8 +543,12 @@ function clcret:Init()
 	local optionFrame = CreateFrame("Frame", nil, UIParent)
 	optionFrame.name = "CLCRet"
 	local optionFrameLoad = CreateFrame("Button", nil, optionFrame, "UIPanelButtonTemplate")
+	optionFrameLoad:SetWidth(150)
+	optionFrameLoad:SetHeight(22)
+	optionFrameLoad:SetText("Load Options")
+	optionFrameLoad:SetPoint("TOPLEFT", 20, -20)
+	optionFrameLoad:SetScript("OnClick", ShowOptions)
 	InterfaceOptions_AddCategory(optionFrame)
-	optionFrame:SetScript("OnShow", ShowOptions)
 	-- chat command that points to our category
 	self:RegisterChatCommand("clcret", ShowOptions)
 	
@@ -680,7 +684,7 @@ function clcret:UpdateFCFS()
 	
 	-- check if people added enough spells
 	if numSpells < 2 then
-		bprint("You need at least 2 skills in the queue. Edit it again and then uncheck Addon disabled")
+		bprint("You need at least 2 skills in the queue.")
 		-- toggle it off
 		db.fullDisable = false
 		self:FullDisableToggle()
@@ -1720,7 +1724,9 @@ function clcret:PresetFrame_Init()
 end
 
 function clcret:PresetFrame_UpdateMouse()
-	self.presetFrame:EnableMouse(db.presetFrame.enableMouse)
+	if self.presetFrame then
+		self.presetFrame:EnableMouse(db.presetFrame.enableMouse)
+	end
 end
 
 -- update layout
@@ -1780,6 +1786,8 @@ end
 
 -- checks if the current rotation is in any of the presets and updates text
 function clcret:PresetFrame_Update()
+	if not self.presetFrame then return end
+
 	local t = {}
 	for i = 1, #pq do
 		t[i] = pq[i].alias
@@ -1832,6 +1840,12 @@ end
 
 -- load a preset
 function clcret:Preset_Load(index)
+	if db.presets[index].name == "" then return end
+
+	if (not self.presetFrame) or (not self.presetFrame:IsVisible()) then
+		bprint("Loading preset:", db.presets[index].name)
+	end
+	
 	local list = { strsplit(" ", db.presets[index].data) }
 
 	local num = 0
@@ -1851,12 +1865,6 @@ function clcret:Preset_Load(index)
 	
 	-- redo queue
 	self:UpdateFCFS()
-	-- self:DisplayFCFS()
-	
-	if InterfaceOptionsFrame:IsVisible() then
-		InterfaceOptionsFrame_OpenToCategory("FCFS")
-	end
-	
 	self:PresetFrame_Update()
 end
 
