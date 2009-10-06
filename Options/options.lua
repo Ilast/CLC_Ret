@@ -55,6 +55,7 @@ local execList = {
 	AuraButtonExecItemVisibleNoCooldown = "OnUse item visible when available",
 	AuraButtonExecGenericBuff = "Generic buff",
 	AuraButtonExecGenericDebuff = "Generic debuff",
+	AuraButtonExecPlayerMissingBuff = "Missing player buff",
 }
 local skillButtonNames = { "Main skill", "Secondary skill" }
 

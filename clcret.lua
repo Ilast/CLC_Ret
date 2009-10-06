@@ -964,6 +964,27 @@ function clcret:AuraButtonExecItemVisibleNoCooldown()
 	end
 end
 
+
+-- checks for a buff by player (or someone) on unit
+function clcret:AuraButtonExecPlayerMissingBuff()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	if not button.hasTexture then
+		button.texture:SetTexture(GetSpellTexture(data.spell))
+		button.hasTexture = true
+	end
+	
+	local name, rank, icon, count, debuffType, duration, expirationTime, caster = UnitBuff("player", data.spell)
+	if not name then
+		button:Show()
+	else
+		button:Hide()
+	end
+end
+
+
 -- checks for a buff by player (or someone) on unit
 function clcret:AuraButtonExecGenericBuff()
 	local index = auraIndex
