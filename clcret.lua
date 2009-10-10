@@ -109,7 +109,7 @@ local strataLevels = {
 -- DEFAULT VALUES
 -- ---------------------------------------------------------------------------------------------------------------------
 local defaults = {
-	char = {
+	profile = {
 		-- layout settings for the main frame (the black box you toggle on and off)\
 		zoomIcons = true,
 		noBorder = false,
@@ -312,7 +312,7 @@ local defaults = {
 }
 -- blank rest of the auras buttons in default options
 for i = 5, MAX_AURAS do 
-	defaults.char.auras[i] = {
+	defaults.profile.auras[i] = {
 		enabled = false,
 		data = {
 			exec = "AuraButtonExecNone",
@@ -332,7 +332,7 @@ for i = 5, MAX_AURAS do
 end
 -- blank presets
 for i = 1, MAX_PRESETS do 
-	defaults.char.presets[i] = {
+	defaults.profile.presets[i] = {
 		name = "",
 		data = "",
 	}
@@ -517,15 +517,28 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- INIT
 -- ---------------------------------------------------------------------------------------------------------------------
+function clcret:ProfileChanged(db, sourceProfile)
+	-- relink 
+	ReloadUI()
+end
 -- load if needed and show options
 local function ShowOptions()
 	if not clcret.optionsLoaded then LoadAddOn("CLCRet_Options") end
 	InterfaceOptionsFrame_OpenToCategory("CLCRet")
 end
 function clcret:OnInitialize()
+	-- try to change from char to profile
+	if clcretDB.char then
+		clcretDB.profiles = clcretDB.char
+		clcretDB.char = nil
+	end
+
 	-- SAVEDVARS
 	self.db = LibStub("AceDB-3.0"):New("clcretDB", defaults)
-	db = self.db.char
+	self.db.RegisterCallback(self, "OnProfileChanged", "ProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileCopied", "ProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileReset", "ProfileChanged")
+	db = self.db.profile
 
 	-- TODO: worth using acetimer just for this ?
 	LibStub("AceTimer-3.0"):ScheduleTimer(self.Init, db.delayedStart, self)
@@ -965,7 +978,7 @@ function clcret:AuraButtonExecItemVisibleNoCooldown()
 end
 
 
--- checks for a buff by player (or someone) on unit
+-- displayed when a specific spell isn't active on player
 function clcret:AuraButtonExecPlayerMissingBuff()
 	local index = auraIndex
 	local button = auraButtons[index]

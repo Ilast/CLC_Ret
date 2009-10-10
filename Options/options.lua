@@ -22,7 +22,7 @@ local function GetSpellChoice()
 end
 
 
-local db = clcret.db.char
+local db = clcret.db.profile
 local root
 
 local strataLevels = {
@@ -1267,6 +1267,11 @@ AceConfigDialog:AddToBlizOptions("CLCRet", "Presets", "CLCRet", "presets")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Aura Buttons", "CLCRet", "auras")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Layout", "CLCRet", "layout")
 AceConfigDialog:AddToBlizOptions("CLCRet", "SoV Tracking", "CLCRet", "sov")
+
+-- profiles
+options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(clcret.db)
+options.args.profiles.order = 900
+LibStub("AceConfigDialog-3.0"):AddToBlizOptions("CLCRet", "Profiles", "CLCRet", "profiles")
 
 InterfaceOptionsFrame_OpenToCategory("CLCRet")
 

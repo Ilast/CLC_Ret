@@ -314,7 +314,7 @@ end
 
 -- initialize the bars
 function clcret:InitSovBars()
-	db = clcret.db.char
+	db = clcret.db.profile	
 	
 	playerName = UnitName("player")
 
