@@ -529,9 +529,11 @@ local function ShowOptions()
 end
 function clcret:OnInitialize()
 	-- try to change from char to profile
-	if clcretDB.char then
-		clcretDB.profiles = clcretDB.char
-		clcretDB.char = nil
+	if clcretDB then
+		if clcretDB.char then
+			clcretDB.profiles = clcretDB.char
+			clcretDB.char = nil
+		end
 	end
 
 	-- SAVEDVARS
