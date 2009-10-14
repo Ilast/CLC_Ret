@@ -466,6 +466,21 @@ local options = {
 					get = function(info) return db.gcdDpSs end,
 					set = function(info, val) db.gcdDpSs = val end,
 				},
+				____percGcdDp = {
+					order = 60,
+					type = "description",
+					name = "If mana percentage drops under this value ignore the extra delay for Divine Plea.",
+				},
+				percGcdDp = {
+					order = 61,
+					type = "range",
+					min = 0,
+					max = 100,
+					step = 1,
+					name = "Ignore extra delay for DP under this percentage",
+					get = function(info) return db.percGcdDp end,
+					set = function(info, val) db.percGcdDp = val end,
+				},
 			},
 		},
 		

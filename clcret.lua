@@ -182,6 +182,7 @@ local defaults = {
 		manaDP = 0,
 		manaDPPerc = 0,
 		gcdDpSs = 0,
+		percGcdDp = 0,						-- if mana is under this value % ignore the "delay" for dp
 		delayedStart = 5,
 		rangePerSkill = false,
 		
@@ -1242,12 +1243,23 @@ end
 
 
 -- ret queue function
+local delayDP
 function clcret:CheckQueueRet()
 	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
 	ctime = GetTime()
 	
 	mana = UnitPower("player")
 	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
+	
+	if db.gcdDpSs > 0 then
+		if db.percGcdDp > 0 and manaPerc < db.percGcdDp then
+			delayDP = false
+		else
+			delayDP = true
+		end
+	else
+		delayDP = false
+	end
 	
 	-- get gcd
 	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
@@ -1379,12 +1391,16 @@ function clcret:GetMinCooldown()
 	local cd, index, v
 	index = 1
 	cd = pq[1].cd
+	-- old bug, fix them even if they are first
+	if (pq[1].alias == "dp" and delayDP) or (pq[1].alias == "ss") then
+		cd = cd + db.gcdDpSs
+	end
 	
 	-- get min cooldown
 	for i = 1, numSpells do
 		v = pq[i]
 		-- if skill is a better choice change index
-		if (v.alias == "dp") or (v.alias == "ss") then	
+		if (v.alias == "dp" and delayDP) or (v.alias == "ss") then	
 			-- special case with delay
 			if ((v.cd + db.gcdDpSs) < cd) or (((v.cd + db.gcdDpSs) == cd) and (i < index)) then
 				index = i
