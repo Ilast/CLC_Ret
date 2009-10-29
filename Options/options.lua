@@ -1064,7 +1064,13 @@ for i = 1, MAX_AURAS do
 				order = 5,
 				type = "input",
 				name = "Spell/item name/id or buff to track",
-				get = function(info) return db.auras[i].data.spell end,
+				get = function(info)
+					-- special case for items since link is used instead of name
+					if (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
+						return GetItemInfo(db.auras[i].data.spell)
+					end
+					return db.auras[i].data.spell
+				end,
 				set = function(info, val)
 					-- skill
 					if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") then
@@ -1080,9 +1086,9 @@ for i = 1, MAX_AURAS do
 						end
 					-- item
 					elseif (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
-						local name = GetItemInfo(val)
+						local name, link = GetItemInfo(val)
 						if name then
-							db.auras[i].data.spell = name
+							db.auras[i].data.spell = link
 						else
 							db.auras[i].data.spell = ""
 							db.auras[i].enabled = false
