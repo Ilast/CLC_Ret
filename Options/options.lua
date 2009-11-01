@@ -61,11 +61,46 @@ local skillButtonNames = { "Main skill", "Secondary skill" }
 
 local options = {
 	type = "group",
-	name = "clcret",
+	name = "CLCRet",
 	args = {
+		info = {
+			type = "group",
+			name = "Info",
+			args = {
+				__i1 = {
+					type = "description",
+					name = "Commands:\n\n    /clcret\n        * opens the options frame \n    /clcreteq\n        * allows editing the FCFS through command line\n        * usage: /clcreteq shortcut1 shortcut2 shortcut3 ....\n        * shortcuts:\n            how - hammer of wrath\n            cs - crusader strike\n            jol - judgement\n            ds - divine storm\n            cons - consecration\n            exo - exorcism\n            ss - sacred shield\n            dp - divine plea\n            hw - holy wrath\n            sor - shield of righteousness\n    /clcretlp\n        * loads a specified preset for retribution\n        * usage: /clcretlp preset_name"
+--[[					
+Commands:
+\n
+\n    /clcret
+\n        * opens the options frame" 
+\n    /clcreteq
+\n        * allows editing the FCFS through command line
+\n        * usage: /clcreteq shortcut1 shortcut2 shortcut3 ....
+\n        * shortcuts:
+\n            how - hammer of wrath
+\n            cs - crusader strike
+\n            jol - judgement
+\n            ds - divine storm
+\n            cons - consecration
+\n            exo - exorcism
+\n            ss - sacred shield
+\n            dp - divine plea
+\n            hw - holy wrath
+\n            sor - shield of righteousness
+\n    /clcretlp
+\n        * loads a specified preset for retribution
+\n        * usage: /clcretlp preset_name
+--]]
+
+				},
+			},
+		},
 		global = {
 			type = "group",
-			name = "clcret",
+			name = "Global",
+			order = 1,
 			args = {
 				-- lock frame
 				lock = {
@@ -1280,7 +1315,8 @@ local AceConfig = LibStub("AceConfig-3.0")
 AceConfig:RegisterOptionsTable("CLCRet", options)
 
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-AceConfigDialog:AddToBlizOptions("CLCRet", "CLCRet", nil, "global")
+AceConfigDialog:AddToBlizOptions("CLCRet", "CLCRet", nil, "info")
+AceConfigDialog:AddToBlizOptions("CLCRet", "Global", "CLCRet", "global")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Appearance", "CLCRet", "appearance")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Behavior", "CLCRet", "behavior")
 AceConfigDialog:AddToBlizOptions("CLCRet", "FCFS", "CLCRet", "fcfs")
