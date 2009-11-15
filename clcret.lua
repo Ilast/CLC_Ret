@@ -1874,7 +1874,7 @@ function clcret:PresetFrame_Update()
 		for i = 1, MAX_PRESETS do
 			button = self.presetButtons[i]
 			if db.presets[i].name ~= "" then
-				button:SetText(db.presets[i].name)
+				button.name:SetText(db.presets[i].name)
 				button:Show()
 			else
 				button:Hide()
@@ -1888,17 +1888,21 @@ function clcret:PresetFrame_Toggle()
 	-- the frame is not loaded by default, so check if init took place
 	if not self.presetFrame then
 		-- need to do init
-		return self:PresetFrame_Init()
+		self:PresetFrame_Init()
+		self.presetFrame:Show()
+		db.presetFrame.visible = true
+		return
 	end
 		
 
 
 	if self.presetFrame:IsVisible() then
 		self.presetFrame:Hide()
+		db.presetFrame.visible = false
 	else
 		self.presetFrame:Show()
+		db.presetFrame.visible = true
 	end
-	db.presetFrame.visible = self.presetFrame:IsVisible()
 end
 
 -- load a preset

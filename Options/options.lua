@@ -555,7 +555,7 @@ Commands:
 				____presetFrameToggle = {
 					order = 10,
 					type = "description",
-					name = "The Preset Frame shows the name of the active preset. Second option allows you to select the prest from the frame with a popup menu.",
+					name = "The Preset Frame shows the name of the active preset. Second option allows you to select the preset from the frame with a popup menu.",
 				},
 				toggle = {
 					order = 11,
@@ -955,7 +955,6 @@ for i = 1, MAX_PRESETS do
 				get = function(info) return db.presets[i].name end,
 				set = function(info, val)
 					db.presets[i].name = strtrim(val)
-					clcret:PresetFrame_Update()
 				end,
 			},
 			data = {
@@ -965,7 +964,6 @@ for i = 1, MAX_PRESETS do
 				get = function(info) return db.presets[i].data end,
 				set = function(info, val)
 					db.presets[i].data = strtrim(val)
-					clcret:PresetFrame_Update()
 				end
 			},
 			load = {
