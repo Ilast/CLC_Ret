@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: CLCRet Options
+## Notes: A LoD option menu for CLCRet
+## Author: Calcute
+## Dependencies: CLCRet
+## LoadOnDemand: 1
+
+embeds.xml
+options.lua
