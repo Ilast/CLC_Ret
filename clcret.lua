@@ -123,6 +123,7 @@ local defaults = {
 		fullDisable = false,
 		protEnabled = true,
 		strata = 3,
+		grayOOM = false,
 		
 		lbf = {
 			Skills = {},
@@ -1085,6 +1086,11 @@ function clcret:AuraButtonExecGenericDebuff()
 end
 
 
+-- resets the vertex color when grayOOM option changes
+function clcret:ResetButtonVertexColor()
+	buttons[1].texture:SetVertexColor(1, 1, 1, 1)
+	buttons[2].texture:SetVertexColor(1, 1, 1, 1)
+end
 -- updates the 2 skill buttons
 function clcret:UpdateUI()
 	-- queue
@@ -1094,10 +1100,25 @@ function clcret:UpdateUI()
 		
 		local start, duration = GetSpellCooldown(dq[i])
 		if duration and duration > 0 then
+			button.cooldown:Show()
 			button.cooldown:SetCooldown(start, duration)
+		else
+			button.cooldown:Hide()
 		end
+		
+		if db.grayOOM then
+			local _, nomana = IsUsableSpell(dq[i])
+			if nomana then 
+				button.texture:SetVertexColor(0.3, 0.3, 0.3, 0.3)
+			else
+				button.texture:SetVertexColor(1, 1, 1, 1)
+			end
+		end
+		
 	end
 end
+
+
 
 -- melee range check
 function clcret:CheckRange()

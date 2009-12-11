@@ -248,6 +248,17 @@ Commands:
 					end,
 					values = { "Light", "Medium", "Heavy" }
 				},
+				grayOOM = {
+					order = 6,
+					type = "toggle",
+					name = "Gray when OOM",
+					get = function(info) return db.grayOOM end,
+					set = function(info, val)
+						db.grayOOM = val
+						clcret:ResetButtonVertexColor()
+					end,
+				},
+				
 				__hudAspect = {
 					type = "header",
 					name = "HUD Aspect",
