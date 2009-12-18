@@ -56,6 +56,7 @@ local execList = {
 	AuraButtonExecGenericBuff = "Generic buff",
 	AuraButtonExecGenericDebuff = "Generic debuff",
 	AuraButtonExecPlayerMissingBuff = "Missing player buff",
+	AuraButtonExecICDItem = "ICD Proc",
 }
 local skillButtonNames = { "Main skill", "Secondary skill" }
 
@@ -329,6 +330,37 @@ Commands:
 						clcret:CenterHorizontally()
 					end,
 				},
+				
+				__icd = {
+					order = 50,
+					type = "header",
+					name = "ICD Visibility",
+				},
+				____icd = {
+					order = 51,
+					type = "description",
+					name = "Controls the way ICD Aura Buttons are displayed while the proc is ready or on cooldown.",
+				},
+				icdReady = {
+					order = 52,
+					type = "select",
+					name = "Ready",
+					values = { [1] = "Visible", [2] = "Faded", [3] = "Invisible" },
+					get = function(info) return db.icd.visibility.ready end,
+					set = function(info, val)
+						db.icd.visibility.ready = val
+					end,
+				},
+				icdCooldown = {
+					order = 53,
+					type = "select",
+					name = "On cooldown",
+					values = { [1] = "Visible", [2] = "Faded", [3] = "Invisible" },
+					get = function(info) return db.icd.visibility.cd end,
+					set = function(info, val)
+						db.icd.visibility.cd = val
+					end,
+				}
 			},
 		},
 	
@@ -736,7 +768,7 @@ Commands:
 				____info = {
 					order = 1,
 					type = "description",
-					name = "These are cooldown watchers. You can select a player skill, an item or a buff/debuff (on a valid target) to watch.\nItems and skills only need a valid item/spell id (or name) and the type. Target (the target to scan) and Cast by player (filters or not buffs cast by others) are specific to buffs/debuffs.\nValid targets are the ones that work with /cast [target=name] macros. For example: player, target, focus, raid1, raid1target.",
+					name = "These are cooldown watchers. You can select a player skill, an item or a buff/debuff (on a valid target) to watch.\nItems and skills only need a valid item/spell id (or name) and the type. Target (the target to scan) and Cast by player (filters or not buffs cast by others) are specific to buffs/debuffs.\nValid targets are the ones that work with /cast [target=name] macros. For example: player, target, focus, raid1, raid1target.\n\nICD Proc:\nYou need to specify a valid proc ID (example: 60229 for Greatness STR proc) Name doesn't work, if the ID is valid it will be replaced by the name after the edit.\nIn the \"Target unit\" field you have to enter the ICD and duration of the proc separated by \":\" (example: for Greatness the value should be 45:15).",
 				},
 			},
 		},
@@ -1102,6 +1134,7 @@ for i = 1, MAX_AURAS do
 					db.auras[i].enabled = val
 					if not val then clcret:AuraButtonHide(i) end
 					clcret:UpdateEnabledAuraButtons()
+					clcret:AuraButtonUpdateICD()
 				end,
 			},
 			spell = {
@@ -1112,6 +1145,8 @@ for i = 1, MAX_AURAS do
 					-- special case for items since link is used instead of name
 					if (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
 						return GetItemInfo(db.auras[i].data.spell)
+					elseif db.auras[i].data.exec == "AuraButtonExecICDItem" then
+						return GetSpellInfo(db.auras[i].data.spell)
 					end
 					return db.auras[i].data.spell
 				end,
@@ -1140,10 +1175,24 @@ for i = 1, MAX_AURAS do
 							clcret:UpdateEnabledAuraButtons()
 							bprint("Not a valid item name or id !")
 						end
+					-- icd stuff
+					elseif (db.auras[i].data.exec == "AuraButtonExecICDItem") then
+						local tid = tonumber(val)
+						local name = GetSpellInfo(tid)
+						if name then
+							db.auras[i].data.spell = tid
+						else
+							db.auras[i].data.spell = ""
+							db.auras[i].enabled = false
+							clcret:AuraButtonHide(i)
+							clcret:UpdateEnabledAuraButtons()
+							bprint("Not a valid spell id!")
+						end
 					else
 						db.auras[i].data.spell = val
 					end
 					clcret:AuraButtonResetTexture(i)
+					clcret:AuraButtonUpdateICD()
 				end,
 			},
 			exec = {
@@ -1180,7 +1229,10 @@ for i = 1, MAX_AURAS do
 				type = "input",
 				name = "Target unit",
 				get = function(info) return db.auras[i].data.unit end,
-				set = function(info, val) db.auras[i].data.unit = val end
+				set = function(info, val)
+					db.auras[i].data.unit = val
+					clcret:AuraButtonUpdateICD()
+				end
 			},
 			byPlayer = {
 				order = 16,

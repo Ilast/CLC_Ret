@@ -53,6 +53,9 @@ local enabledAuraButtons
 local numEnabledAuraButtons 
 local auraIndex
 
+local icd = {}
+local playerName
+
 -- addon status
 local addonEnabled = false			-- enabled
 local addonInit = false				-- init completed
@@ -128,6 +131,14 @@ local defaults = {
 		lbf = {
 			Skills = {},
 			Auras = {},
+		},
+		
+		-- icd
+		icd = {
+			visibility = {
+				ready = 1,
+				cd = 3,
+			},
 		},
 		
 		-- fcfs
@@ -554,6 +565,8 @@ function clcret:Init()
 		bprint("|cffff0000Warning!|cffffffff This addon is not designed to work with " .. localclass .. " class. Probably would be better to disable it on this char.")
 		return
 	end
+	
+	playerName = UnitName("player")
 
 	-- get player name for sov tracking 
 	self.spec = "Holy"
@@ -584,6 +597,7 @@ function clcret:Init()
 	self:RegisterChatCommand("clcreteq", "EditQueue") -- edit the queue from command line
 	self:RegisterChatCommand("clcretpq", "DisplayFCFS") -- display the queue
 	self:RegisterChatCommand("clcretlp", "Preset_LoadByName") -- load the specified preset
+	self:RegisterChatCommand("clcreportmincd", "ICDReportMinCd") -- report the min cd for that button
 	
 	self:UpdateEnabledAuraButtons()
 	
@@ -607,9 +621,9 @@ function clcret:Init()
 	-- init sov bars
 	-- TODO: Make it dynamic later
 	self:InitSovBars()
-	if db.sov.enabled then
-		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	end
+	
+	-- icd stuff
+	self:AuraButtonUpdateICD()
 	
 	-- preset frame
 	if db.presetFrame.visible then
@@ -998,6 +1012,63 @@ function clcret:AuraButtonExecPlayerMissingBuff()
 		button:Show()
 	else
 		button:Hide()
+	end
+end
+
+-- experimental item with icd stuff
+-- states:
+--	no icd
+--  buff active
+--  icd
+function clcret:AuraButtonExecICDItem()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = icd.data[index]
+	
+	if not button.hasTexture then
+		local _, _, tex = GetSpellInfo(data.id)
+		button.texture:SetTexture(tex)
+		button.hasTexture = true
+	end
+
+	local gt = GetTime()
+	if (gt - data.start) > data.durationBuff then data.active = false end
+	if (gt - data.start) > data.durationICD then data.enabled = false end
+	
+	if data.active then 
+		-- always show the button when proc is active
+		button:Show()
+		button.cooldown:Show()
+		button.cooldown:SetCooldown(data.start, data.durationBuff)
+		button:SetAlpha(1)
+		
+	elseif data.enabled then
+		-- check how to display
+		if db.icd.visibility.cd == 1 then
+			button:Show()
+			button:SetAlpha(1)
+		elseif db.icd.visibility.cd == 2 then
+			button:Show()
+			button:SetAlpha(0.5)
+		else
+			button:Hide()
+			return
+		end
+		
+		button.cooldown:Show()
+		button.cooldown:SetCooldown(data.start, data.durationICD)
+	else
+		if db.icd.visibility.ready == 1 then
+			button:Show()
+			button:SetAlpha(1)
+		elseif db.icd.visibility.ready == 2 then
+			button:Show()
+			button:SetAlpha(0.5)
+		else
+			button:Hide()
+		end
+		
+		button.cooldown:Hide()
 	end
 end
 
@@ -1707,9 +1778,7 @@ function clcret:FullDisableToggle()
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "VEHICLE_CHECK")
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", "VEHICLE_CHECK")
 		
-		if db.sov.enabled then
-			self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		end
+		self:RegisterCLEU()
 		
 		-- do the normal load rutine
 		self:PLAYER_TALENT_UPDATE()
@@ -2012,6 +2081,94 @@ function clcret:UpdateEnabledAuraButtons()
 		if db.auras[i].enabled then
 			numEnabledAuraButtons = numEnabledAuraButtons + 1
 			enabledAuraButtons[numEnabledAuraButtons] = i
+		end
+	end
+end
+
+
+local ceAuraApplied = {
+	["SPELL_AURA_APPLIED"] = true,
+	["SPELL_AURA_REFRESH"] = true,
+	["SPELL_AURA_APPLIED_DOSE"] = true,
+}
+
+local ceAuraRemoved = {
+	["SPELL_AURA_REMOVED"] = true,
+	["SPELL_AURA_REMOVED_DOSE"] = true,
+}
+
+
+-- icd related stuff
+-- helper functions
+
+-- reports min icd for a specified aura button
+function clcret:ICDReportMinCd(args)
+	local id = tonumber(args)
+	if icd.data[id] then
+		bprint(icd.data[id].mincd)
+	else
+		bprint("No data found")
+	end
+end
+
+-- check the aura list and enables cleu if needed, also resets all data
+function clcret:AuraButtonUpdateICD()
+	icd.spells = {}
+	icd.data = {}
+	icd.cleu = false
+
+	for i = 1, MAX_AURAS do
+		if db.auras[i].data.exec == "AuraButtonExecICDItem" and db.auras[i].data.spell ~= "" then
+			local id = tonumber(db.auras[i].data.spell)
+			local durationICD, durationBuff = strsplit(":", db.auras[i].data.unit)
+			durationICD = tonumber(durationICD) or 0
+			durationBuff = tonumber(durationBuff) or 0
+			
+			icd.cleu = true
+			icd.spells[id] = i
+			icd.data[i] = { id = db.auras[i].data.spell, durationICD = durationICD, durationBuff = durationBuff, start = 0, enabled = false, active = false, last = 0, mincd = 10000 }
+		end
+	end
+	
+	-- register/unregister combat log proccessing
+	self:RegisterCLEU()
+end
+
+
+function clcret:RegisterCLEU()
+	if icd.cleu or db.sov.enabled then
+		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	else
+		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	end
+end
+
+
+-- cleu dispatcher wannabe
+function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
+	-- pass info for the sov function
+	if db.sov.enabled then
+		clcret:SOV_COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
+	end
+	
+	-- return if no icd
+	if not icd.cleu then return end
+	
+	-- icd logic
+	if destName == playerName and icd.spells[spellId] then
+		local i = icd.spells[spellId]
+		if ceAuraApplied[combatEvent] then
+			icd.data[i].start = GetTime()
+			icd.data[i].cd = icd.data[i].start - icd.data[i].last
+			icd.data[i].last = icd.data[i].start
+			-- check if it's a smaller cd than the one used
+			if icd.data[i].start > 0 and icd.data[i].cd < icd.data[i].durationICD then
+				bprint("Warning: " .. spellId .. "(" .. GetSpellInfo(spellId) .. ") activated after " .. icd.data[i].cd .. " seconds and specified ICD is " .. icd.data[i].durationICD .. " seconds.")
+			end
+			-- save min cd
+			if icd.data[i].cd < icd.data[i].mincd then icd.data[i].mincd = icd.data[i].cd end
+			icd.data[i].enabled = true
+			icd.data[i].active = true
 		end
 	end
 end

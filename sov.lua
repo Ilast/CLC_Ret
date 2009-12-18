@@ -37,7 +37,7 @@ local db
 -- SPELL_AURA_REMOVED -> dot removed
 -- ---------------------------------------------------------------------------------------------------------------------
 
-function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
+function clcret:SOV_COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
 	if spellId == sovId then
 		if sourceName == playerName then
 			if combatEvent == "SPELL_AURA_APPLIED" then
