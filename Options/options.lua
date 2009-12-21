@@ -51,6 +51,7 @@ local execList = {
 	AuraButtonExecNone = "None",
 	AuraButtonExecSkillVisibleAlways = "Skill always visible",
 	AuraButtonExecSkillVisibleNoCooldown = "Skill visible when available",
+	AuraButtonExecSkillVisibleOnCooldown = "Skill visible when not available",
 	AuraButtonExecItemVisibleAlways = "OnUse item always visible",
 	AuraButtonExecItemVisibleNoCooldown = "OnUse item visible when available",
 	AuraButtonExecGenericBuff = "Generic buff",
@@ -1152,7 +1153,7 @@ for i = 1, MAX_AURAS do
 				end,
 				set = function(info, val)
 					-- skill
-					if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") then
+					if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleOnCooldown") then
 						local name = GetSpellInfo(val)
 						if name then
 							db.auras[i].data.spell = name
@@ -1203,7 +1204,7 @@ for i = 1, MAX_AURAS do
 				set = function(info, val)
 					db.auras[i].data.exec = val
 					-- skill
-					if (val == "AuraButtonExecSkillVisibleAlways") or (val == "AuraButtonExecSkillVisibleNoCooldown") then
+					if (val == "AuraButtonExecSkillVisibleAlways") or (val == "AuraButtonExecSkillVisibleNoCooldown") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleOnCooldown") then
 						if not GetSpellInfo(db.auras[i].data.spell) then
 							db.auras[i].data.spell = ""
 							db.auras[i].enabled = false

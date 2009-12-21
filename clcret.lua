@@ -929,6 +929,28 @@ function clcret:AuraButtonExecSkillVisibleNoCooldown()
 	end
 end
 
+-- shows a skill only when on cooldown
+function clcret:AuraButtonExecSkillVisibleOnCooldown()
+	local index = auraIndex
+	local button = auraButtons[index]
+	local data = db.auras[index].data
+	
+	-- fix the texture once
+	if not button.hasTexture then
+		button.hasTexture = true
+		button.texture:SetTexture(GetSpellTexture(data.spell))
+	end
+
+	local start, duration = GetSpellCooldown(data.spell)
+	
+	if duration and duration > 1.5 then
+		button:Show()
+		button.cooldown:SetCooldown(start, duration)
+	else
+		button:Hide()
+	end
+end
+
 -- shows an equiped usable item always with a visible cooldown when needed
 function clcret:AuraButtonExecItemVisibleAlways()
 	local index = auraIndex
@@ -2159,7 +2181,7 @@ function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourc
 		local i = icd.spells[spellId]
 		if ceAuraApplied[combatEvent] then
 			icd.data[i].start = GetTime()
-			icd.data[i].cd = icd.data[i].start - icd.data[i].last
+			icd.data[i].cd = floor(icd.data[i].start - icd.data[i].last + 0.5)
 			icd.data[i].last = icd.data[i].start
 			-- check if it's a smaller cd than the one used
 			if icd.data[i].start > 0 and icd.data[i].cd < icd.data[i].durationICD then
