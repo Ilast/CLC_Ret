@@ -61,6 +61,149 @@ local execList = {
 }
 local skillButtonNames = { "Main skill", "Secondary skill" }
 
+
+-- index lookup for aura buttons
+local ilt = {}
+for i = 1, MAX_AURAS do
+	ilt["aura" .. i] = i
+end
+
+-- aura buttons get/set functions
+local abgs = {}
+
+function abgs:UpdateAll()
+	clcret:UpdateEnabledAuraButtons()
+	clcret:AuraButtonResetTextures()
+	clcret:UpdateAuraButtonsCooldown()
+	clcret:AuraButtonUpdateICD()
+end
+
+-- enabled toggle
+function abgs:EnabledGet()
+	local i = ilt[self[2]]
+	
+	return db.auras[i].enabled
+end
+function abgs:EnabledSet(val)
+	local i = ilt[self[2]]
+	
+	clcret.temp = info
+	if db.auras[i].data.spell == "" then
+		val = false
+		bprint("Not a valid spell name/id or buff name!")
+	end
+	db.auras[i].enabled = val
+	if not val then clcret:AuraButtonHide(i) end
+	abgs:UpdateAll()
+end
+
+-- id/name field
+function abgs:SpellGet()
+	local i = ilt[self[2]]
+	
+	-- special case for items since link is used instead of name
+	if (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
+		return GetItemInfo(db.auras[i].data.spell)
+	elseif db.auras[i].data.exec == "AuraButtonExecICDItem" then
+		return GetSpellInfo(db.auras[i].data.spell)
+	end
+	return db.auras[i].data.spell
+end
+
+function abgs:SpellSet(val)
+	local i = ilt[self[2]]
+	
+	-- skill
+	if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleOnCooldown") then
+		local name = GetSpellInfo(val)
+		if name then
+			db.auras[i].data.spell = name
+		else
+			db.auras[i].data.spell = ""
+			db.auras[i].enabled = false
+			clcret:AuraButtonHide(i)
+			bprint("Not a valid spell name or id !")
+		end
+	-- item
+	elseif (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
+		local name, link = GetItemInfo(val)
+		if name then
+			db.auras[i].data.spell = link
+		else
+			db.auras[i].data.spell = ""
+			db.auras[i].enabled = false
+			clcret:AuraButtonHide(i)
+			bprint("Not a valid item name or id !")
+		end
+	-- icd stuff
+	elseif (db.auras[i].data.exec == "AuraButtonExecICDItem") then
+		local tid = tonumber(val)
+		local name = GetSpellInfo(tid)
+		if name then
+			db.auras[i].data.spell = tid
+		else
+			db.auras[i].data.spell = ""
+			db.auras[i].enabled = false
+			clcret:AuraButtonHide(i)
+			bprint("Not a valid spell id!")
+		end
+	else
+		db.auras[i].data.spell = val
+	end
+	abgs:UpdateAll()
+end
+
+-- type select
+function abgs:ExecGet()
+	local i = ilt[self[2]]
+	
+	return db.auras[i].data.exec
+end
+
+function abgs:ExecSet(val)
+	local i = ilt[self[2]]
+	local aura = db.auras[i]
+	
+	-- reset every other setting when this is changed
+	aura.enabled = false
+	aura.data.spell = ""
+	aura.data.unit = ""
+	aura.data.byPlayer = false
+	clcret:AuraButtonHide(i)
+	
+	aura.data.exec = val
+	
+	abgs:UpdateAll()
+end
+
+-- target field
+function abgs:UnitGet()
+	local i = ilt[self[2]]
+	
+	return db.auras[i].data.unit
+end
+
+function abgs:UnitSet(val)
+	local i = ilt[self[2]]
+	
+	db.auras[i].data.unit = val
+	abgs:UpdateAll()
+end
+
+-- cast by player toggle
+function abgs:ByPlayerGet()
+	local i = ilt[self[2]]
+	
+	return db.auras[i].data.byPlayer
+end
+
+function abgs:ByPlayerSet(val)
+	local i = ilt[self[2]]
+	
+	db.auras[i].data.byPlayer = val
+	abgs:UpdateAll()
+end
+
 local options = {
 	type = "group",
 	name = "CLCRet",
@@ -1126,121 +1269,37 @@ for i = 1, MAX_AURAS do
 				order = 1,
 				type = "toggle",
 				name = "Enabled",
-				get = function(info) return db.auras[i].enabled end,
-				set = function(info, val)
-					if db.auras[i].data.spell == "" then
-						val = false
-						bprint("Not a valid spell name/id or buff name!")
-					end
-					db.auras[i].enabled = val
-					if not val then clcret:AuraButtonHide(i) end
-					clcret:UpdateEnabledAuraButtons()
-					clcret:AuraButtonUpdateICD()
-				end,
+				get = abgs.EnabledGet,
+				set = abgs.EnabledSet,
 			},
 			spell = {
 				order = 5,
 				type = "input",
 				name = "Spell/item name/id or buff to track",
-				get = function(info)
-					-- special case for items since link is used instead of name
-					if (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
-						return GetItemInfo(db.auras[i].data.spell)
-					elseif db.auras[i].data.exec == "AuraButtonExecICDItem" then
-						return GetSpellInfo(db.auras[i].data.spell)
-					end
-					return db.auras[i].data.spell
-				end,
-				set = function(info, val)
-					-- skill
-					if (db.auras[i].data.exec == "AuraButtonExecSkillVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleNoCooldown") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleOnCooldown") then
-						local name = GetSpellInfo(val)
-						if name then
-							db.auras[i].data.spell = name
-						else
-							db.auras[i].data.spell = ""
-							db.auras[i].enabled = false
-							clcret:AuraButtonHide(i)
-							clcret:UpdateEnabledAuraButtons()
-							bprint("Not a valid spell name or id !")
-						end
-					-- item
-					elseif (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
-						local name, link = GetItemInfo(val)
-						if name then
-							db.auras[i].data.spell = link
-						else
-							db.auras[i].data.spell = ""
-							db.auras[i].enabled = false
-							clcret:AuraButtonHide(i)
-							clcret:UpdateEnabledAuraButtons()
-							bprint("Not a valid item name or id !")
-						end
-					-- icd stuff
-					elseif (db.auras[i].data.exec == "AuraButtonExecICDItem") then
-						local tid = tonumber(val)
-						local name = GetSpellInfo(tid)
-						if name then
-							db.auras[i].data.spell = tid
-						else
-							db.auras[i].data.spell = ""
-							db.auras[i].enabled = false
-							clcret:AuraButtonHide(i)
-							clcret:UpdateEnabledAuraButtons()
-							bprint("Not a valid spell id!")
-						end
-					else
-						db.auras[i].data.spell = val
-					end
-					clcret:AuraButtonResetTexture(i)
-					clcret:AuraButtonUpdateICD()
-				end,
+				get = abgs.SpellGet,
+				set = abgs.SpellSet,
 			},
 			exec = {
 				order = 10,
 				type = "select",
 				name = "Type",
-				get = function(info) return db.auras[i].data.exec end,
-				set = function(info, val)
-					db.auras[i].data.exec = val
-					-- skill
-					if (val == "AuraButtonExecSkillVisibleAlways") or (val == "AuraButtonExecSkillVisibleNoCooldown") or (db.auras[i].data.exec == "AuraButtonExecSkillVisibleOnCooldown") then
-						if not GetSpellInfo(db.auras[i].data.spell) then
-							db.auras[i].data.spell = ""
-							db.auras[i].enabled = false
-							clcret:AuraButtonHide(i)
-							bprint("Not a valid spell name or id !")
-						end
-					-- item
-					elseif (val == "AuraButtonExecItemVisibleAlways") or (val == "AuraButtonExecItemVisibleNoCooldown") then
-						if not GetItemInfo(db.auras[i].data.spell) then
-							db.auras[i].data.spell = ""
-							db.auras[i].enabled = false
-							clcret:AuraButtonHide(i)
-							bprint("Not a valid item name or id !")
-						end
-					end
-					clcret:UpdateEnabledAuraButtons()
-					clcret:UpdateAuraButtonsCooldown()
-				end,
+				get = abgs.ExecGet,
+				set = abgs.ExecSet,
 				values = execList,
 			},
 			unit = {
 				order = 15,
 				type = "input",
 				name = "Target unit",
-				get = function(info) return db.auras[i].data.unit end,
-				set = function(info, val)
-					db.auras[i].data.unit = val
-					clcret:AuraButtonUpdateICD()
-				end
+				get = abgs.UnitGet,
+				set = abgs.UnitSet,
 			},
 			byPlayer = {
 				order = 16,
 				type = "toggle",
 				name = "Cast by player",
-				get = function(info) return db.auras[i].data.byPlayer end,
-				set = function(info, val) db.auras[i].data.byPlayer = val end
+				get = abgs.ByPlayerGet,
+				set = abgs.ByPlayerSet,
 			}
 		},
 	}

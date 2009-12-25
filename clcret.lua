@@ -64,6 +64,11 @@ clcret.locked = true				-- main frame locked
 -- shortcut for db options
 local db
 
+--[[
+clcret.auraButtons = auraButtons
+clcret.icd = icd
+--]]
+
 -- the spells used in fcfs
 clcret.spells = {
 	how		= { id = 48806 },		-- hammer of wrath
@@ -1071,7 +1076,7 @@ function clcret:AuraButtonExecICDItem()
 			button:SetAlpha(1)
 		elseif db.icd.visibility.cd == 2 then
 			button:Show()
-			button:SetAlpha(0.5)
+			button:SetAlpha(0.3)
 		else
 			button:Hide()
 			return
@@ -2074,6 +2079,12 @@ end
 
 -- HELPER FUNCTIONS
 -- ---------------------------------------------------------------------------------------------------------------------
+function clcret:AuraButtonResetTextures()
+	for i = 1, MAX_AURAS do
+		auraButtons[index].hasTexture = false
+	end
+end
+
 function clcret:AuraButtonResetTexture(index)
 	auraButtons[index].hasTexture = false
 end
@@ -2140,7 +2151,7 @@ function clcret:AuraButtonUpdateICD()
 	icd.cleu = false
 
 	for i = 1, MAX_AURAS do
-		if db.auras[i].data.exec == "AuraButtonExecICDItem" and db.auras[i].data.spell ~= "" then
+		if db.auras[i].data.exec == "AuraButtonExecICDItem" and db.auras[i].data.spell ~= "" and db.auras[i].enabled then
 			local id = tonumber(db.auras[i].data.spell)
 			local durationICD, durationBuff = strsplit(":", db.auras[i].data.unit)
 			durationICD = tonumber(durationICD) or 0
