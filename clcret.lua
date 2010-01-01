@@ -8,7 +8,7 @@ end
 
 clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0")
 
-local MAX_AURAS = 10
+local MAX_AURAS = 20
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
 local BORDERTEX = "Interface\\AddOns\\clcret\\textures\\border"
 local borderType = {
@@ -696,8 +696,8 @@ function clcret:EditQueue(args)
 	end
 	
 	-- none on the rest
-	if num < 10 then
-		for i = num + 1, 10 do
+	if num < MAX_PRESETS then
+		for i = num + 1, MAX_PRESETS do
 			db.fcfs[i] = "none"
 		end
 	end
@@ -1656,7 +1656,7 @@ end
 
 -- update scale, alpha, position for main frame
 function clcret:UpdateFrameSettings()
-	self.frame:SetScale(db.scale)
+	self.frame:SetScale(max(db.scale, 0.01))
 	self.frame:SetAlpha(db.alpha)
 	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
 end
@@ -1721,7 +1721,7 @@ end
 -- initialize aura buttons
 function clcret:InitAuraButtons()
 	local data, layout
-	for i = 1, 10 do
+	for i = 1, MAX_AURAS do
 		data = db.auras[i].data
 		layout = db.auras[i].layout
 		auraButtons[i] = self:CreateButton("aura"..i, layout.size, layout.point, clcretFrame, layout.pointParent, layout.x, layout.y, "Auras")
@@ -2041,8 +2041,8 @@ function clcret:Preset_Load(index)
 	end
 	
 	-- none on the rest
-	if num < 10 then
-		for i = num + 1, 10 do
+	if num < MAX_PRESETS then
+		for i = num + 1, MAX_PRESETS do
 			db.fcfs[i] = "none"
 		end
 	end
@@ -2081,7 +2081,7 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 function clcret:AuraButtonResetTextures()
 	for i = 1, MAX_AURAS do
-		auraButtons[index].hasTexture = false
+		auraButtons[i].hasTexture = false
 	end
 end
 

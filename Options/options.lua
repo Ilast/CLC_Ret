@@ -8,7 +8,7 @@ end
 
 clcret.optionsLoaded = true
 
-local MAX_AURAS = 10
+local MAX_AURAS = 20
 local MAX_SOVBARS = 5
 local MAX_PRESETS = 10
 
@@ -73,9 +73,9 @@ local abgs = {}
 
 function abgs:UpdateAll()
 	clcret:UpdateEnabledAuraButtons()
-	clcret:AuraButtonResetTextures()
 	clcret:UpdateAuraButtonsCooldown()
 	clcret:AuraButtonUpdateICD()
+	clcret:AuraButtonResetTextures()
 end
 
 -- enabled toggle
@@ -150,6 +150,7 @@ function abgs:SpellSet(val)
 	else
 		db.auras[i].data.spell = val
 	end
+	
 	abgs:UpdateAll()
 end
 
@@ -413,7 +414,7 @@ Commands:
 					order = 11,
 					type = "range",
 					name = "Scale",
-					min = 0,
+					min = 0.01,
 					max = 3,
 					step = 0.01,
 					get = function(info) return db.scale end,
