@@ -1189,6 +1189,7 @@ function clcret:ResetButtonVertexColor()
 	buttons[1].texture:SetVertexColor(1, 1, 1, 1)
 	buttons[2].texture:SetVertexColor(1, 1, 1, 1)
 end
+
 -- updates the 2 skill buttons
 function clcret:UpdateUI()
 	-- queue
@@ -1233,7 +1234,7 @@ function clcret:CheckRange()
 		end
 	else
 		-- both skills show melee range
-		range = IsSpellInRange(self.spells["cs"].name, "target")	
+		range = IsSpellInRange(self.spells["sor"].name, "target")	
 		if range ~= nil and range == 0 then
 			for i = 1, 2 do
 				buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
@@ -1434,6 +1435,10 @@ function clcret:CheckQueueRet()
 		else
 			v.cd = 0
 		end
+		
+		-- ds gcd fix?
+		-- todo: check
+		if v.cd < gcd then v.cd = gcd end
 		
 		-- how check
 		if v.alias == "how" then

@@ -409,7 +409,7 @@ function clcret:ToggleSovTracking()
 	if db.sov.enabled then
 		-- disable
 		db.sov.enabled = false
-		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		self:RegisterCLEU()
 		
 		-- hide the bars
 		for i = 1, MAX_SOVBARS do
@@ -419,7 +419,7 @@ function clcret:ToggleSovTracking()
 	else
 		-- enable
 		db.sov.enabled = true
-		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		self:RegisterCLEU()
 	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
