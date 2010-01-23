@@ -1125,6 +1125,113 @@ Commands:
 				},
 			},
 		},
+		
+		-- swing timer
+		swing = {
+			order = 50,
+			name = "Swing Timer",
+			type = "group",
+			args = {
+				____info = {
+					order = 1,
+					type = "description",
+					name = "Minimalist swing timer.",
+				},
+				enabled = {
+					order = 2,
+					type = "toggle",
+					name = "Enable",
+					get = function(info) return db.swing.enabled end,
+					set = function(info, val) clcret:ToggleSwingTimer() end,
+				},
+				color = {
+					order = 22,
+					type = "color",
+					name = "Color of the bar",
+					hasAlpha = true,
+					get = function(info) return unpack(db.swing.color) end,
+					set = function(info, r, g, b, a)
+						db.swing.color = {r, g, b, a}
+						clcret:UpdateSwingBarLayout()
+					end,
+				},
+				
+				anchor = {
+					order = 80,
+					type = "select",
+					name = "Anchor",
+					get = function(info) return db.swing.point end,
+					set = function(info, val)
+						db.swing.point = val
+						clcret:UpdateSwingBarLayout()
+					end,
+					values = anchorPoints,
+				},
+				anchorTo = {
+					order = 81,
+					type = "select",
+					name = "Anchor To",
+					get = function(info) return db.swing.pointParent end,
+					set = function(info, val)
+						db.swing.pointParent = val
+						clcret:UpdateSwingBarLayout()
+					end,
+					values = anchorPoints,
+				},
+				x = {
+					order = 82,
+					type = "range",
+					name = "X",
+					min = -1000,
+					max = 1000,
+					step = 1,
+					get = function(info) return db.swing.x end,
+					set = function(info, val)
+						db.swing.x = val
+						clcret:UpdateSwingBarLayout()
+					end,
+				},
+				y = {
+					order = 83,
+					type = "range",
+					name = "Y",
+					min = -1000,
+					max = 1000,
+					step = 1,
+					get = function(info) return db.swing.y end,
+					set = function(info, val)
+						db.swing.y = val
+						clcret:UpdateSwingBarLayout()
+					end,
+				},
+				width = {
+					order = 90,
+					type = "range",
+					name = "Width",
+					min = 1,
+					max = 1000,
+					step = 1,
+					get = function(info) return db.swing.width end,
+					set = function(info, val)
+						db.swing.width = val
+						clcret:UpdateSwingBarLayout()
+					end,
+				},
+				height = {
+					order = 91,
+					type = "range",
+					name = "Height (Size for Icons)",
+					min = 1,
+					max = 500,
+					step = 1,
+					get = function(info) return db.swing.height end,
+					set = function(info, val)
+						db.swing.height = val
+						clcret:UpdateSwingBarLayout()
+					end,
+				},
+			},
+		},
 	},
 }
 
@@ -1446,6 +1553,7 @@ AceConfigDialog:AddToBlizOptions("CLCRet", "Presets", "CLCRet", "presets")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Aura Buttons", "CLCRet", "auras")
 AceConfigDialog:AddToBlizOptions("CLCRet", "Layout", "CLCRet", "layout")
 AceConfigDialog:AddToBlizOptions("CLCRet", "SoV Tracking", "CLCRet", "sov")
+AceConfigDialog:AddToBlizOptions("CLCRet", "Swing Timer", "CLCRet", "swing")
 
 -- profiles
 options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(clcret.db)

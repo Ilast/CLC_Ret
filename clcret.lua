@@ -326,6 +326,17 @@ local defaults = {
 			targetDifference = false,
 			useButtons = false,
 		},
+		
+		swing = {
+			enabled = true,
+			width = 200,
+			height = 10,
+			color = {1, 1, 0, 1},
+			point = "BOTTOM",
+			pointParent = "TOP",
+			x = 0,
+			y = 50,
+		},
 	}
 }
 -- blank rest of the auras buttons in default options
@@ -388,6 +399,10 @@ local function OnUpdate(this, elapsed)
 			throttleSov = 0
 			clcret:UpdateSovBars()
 		end
+	end
+	
+	if db.swing.enabled then
+		clcret:UpdateSwingBar()
 	end
 	
 	--[[ DEBUG
@@ -626,6 +641,10 @@ function clcret:Init()
 	-- init sov bars
 	-- TODO: Make it dynamic later
 	self:InitSovBars()
+	
+	-- init swing bar
+	-- TODO: Make it dynamic
+	self:InitSwingBar()
 	
 	-- icd stuff
 	self:AuraButtonUpdateICD()
@@ -2174,7 +2193,7 @@ end
 
 
 function clcret:RegisterCLEU()
-	if icd.cleu or db.sov.enabled then
+	if icd.cleu or db.sov.enabled or db.swing.enabled then
 		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 	else
 		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -2187,6 +2206,11 @@ function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourc
 	-- pass info for the sov function
 	if db.sov.enabled then
 		clcret:SOV_COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
+	end
+	
+	-- swing timer
+	if db.swing.enabled then
+		clcret:SWING_COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellId, spellName, spellSchool, spellType, dose, ...)
 	end
 	
 	-- return if no icd
