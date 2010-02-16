@@ -1734,8 +1734,8 @@ function clcret:InitUI()
 	-- aura buttons
 	self:InitAuraButtons()
 	
-	-- set scale
-	frame:SetScale(db.scale)
+	-- set scale, alpha, position
+	self:UpdateFrameSettings()
 	
 	addonInit = true
 	self:Disable()
