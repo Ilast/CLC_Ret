@@ -982,10 +982,12 @@ function clcret:AuraButtonExecItemVisibleAlways()
 	local data = db.auras[index].data
 	
 	-- hide the item if is not equiped
+	--[[
 	if not IsEquippedItem(data.spell) then
 		button:Hide()
 		return
 	end
+	--]]
 	
 	-- fix the texture once
 	if not button.hasTexture then
@@ -1015,10 +1017,12 @@ function clcret:AuraButtonExecItemVisibleNoCooldown()
 	local data = db.auras[index].data
 	
 	-- hide the item if is not equiped
+	--[[
 	if not IsEquippedItem(data.spell) then
 		button:Hide()
 		return
 	end
+	--]]
 	
 	-- fix the texture once
 	if not button.hasTexture then
