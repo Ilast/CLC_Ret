@@ -1,10 +1,4 @@
-local function bprint(...)
-	local t = {}
-	for i = 1, select("#", ...) do
-		t[i] = tostring(select(i, ...))
-	end
-	DEFAULT_CHAT_FRAME:AddMessage("CLCRet: " .. table.concat(t, " "))
-end
+local GetTime = GetTime
 
 clcret = LibStub("AceAddon-3.0"):NewAddon("clcret", "AceEvent-3.0", "AceConsole-3.0")
 
@@ -17,25 +11,8 @@ local borderType = {
 	"Interface\\AddOns\\clcret\\textures\\border_heavy"				-- heavy
 }
 
--- cleanse spell name, used for gcd
-local cleanseSpellName = GetSpellInfo(4987) 			-- cleanse -> 
-
--- various spell names, used for default settings
-local taowSpellName = GetSpellInfo(59578) 				-- the art of war
-local awSpellName = GetSpellInfo(31884) 				-- avenging wrath
-local dpSpellName = GetSpellInfo(54428)					-- divine plea
-local sovName, sovId, sovSpellTexture
-if UnitFactionGroup("player") == "Alliance" then
-	sovId = 31803
-	sovName = GetSpellInfo(31803)						-- holy vengeance
-	sovSpellTexture = GetSpellInfo(31801)
-else
-	sovId = 53742
-	sovName = GetSpellInfo(53742)						-- blood corruption
-	sovSpellTexture = GetSpellInfo(53736)
-end
-
-clcret.sovData = { sovId, sovName, sovSpellTexture }
+local taowSpellName = GetSpellInfo(59578) 				-- the art of war proc
+local spellHandOfLight = GetSpellInfo(90174)			-- hand of light proc
 
 -- priority queue generated from fcfs
 local pq
@@ -69,27 +46,23 @@ clcret.auraButtons = auraButtons
 clcret.icd = icd
 --]]
 
--- the spells used in fcfs
-clcret.spells = {
-	how		= { id = 48806 },		-- hammer of wrath
-	cs 		= { id = 35395 },		-- crusader strike
-	ds 		= { id = 53385 },		-- divine storm
-	jol 	= { id = 53408 },		-- judgement (using wisdom atm)
-	cons 	= { id = 48819 },		-- consecration
-	exo 	= { id = 48801 },		-- exorcism
-	dp 		= { id = 54428 },		-- divine plea
-	ss 		= { id = 53601 },		-- sacred shield
-	hw		= { id = 2812  },		-- holy wrath
-	sor 	= { id = 53600 },		-- shield of righteousness
+-- spells used
+local spells = {
+	how		= { id = 24275 	},		-- hammer of wrath
+	cs 		= { id = 35395 	},		-- crusader strike
+	tv 		= { id = 85256 	},		-- templar's verdict
+	inq 	= { id = 84963	},		-- inquisition
+	ds 		= { id = 53385 	},		-- divine storm
+	j 		= { id = 20271 	},		-- judgement
+	cons 	= { id = 26573 	},		-- consecration
+	exo 	= { id = 879 		},		-- exorcism
+	hw		= { id = 2812  	},		-- holy wrath
+	cls 	= { id = 4987		},		-- cleanse
 }
+clcret.spells = spells
 
-clcret.protSpells = {
-	sor 	= { id = 53600 },		-- shield of righteousness
-	hotr 	= { id = 53595 },		-- hammer of the righteous
-	hs 		= { id = 20925 },		-- holy shield
-	cons 	= { id = 48819 },		-- consecration
-	jol 	= { id = 53408 },		-- judgement (using wisdom atm)
-}
+local fillers = { exo = {}, how = {}, j = {}, hw = {}, cons = {} }
+clcret.fillers = fillers
 
 -- used for the highlight lock on skill use
 local lastgcd = 0
@@ -118,6 +91,7 @@ local strataLevels = {
 -- ---------------------------------------------------------------------------------------------------------------------
 local defaults = {
 	profile = {
+		version = 1,
 		-- layout settings for the main frame (the black box you toggle on and off)\
 		zoomIcons = true,
 		noBorder = false,
@@ -129,7 +103,6 @@ local defaults = {
 		alpha = 1,
 		show = "always",
 		fullDisable = false,
-		protEnabled = true,
 		strata = 3,
 		grayOOM = false,
 		
@@ -148,12 +121,9 @@ local defaults = {
 		
 		-- fcfs
 		fcfs = {
-			"how",
-			"cs",
-			"jol",
-			"ds",
-			"cons",
-			"exo",
+			"exo", "how", "j", "hw",
+			"none",
+			"none",
 			"none",
 			"none",
 			"none",
@@ -180,28 +150,12 @@ local defaults = {
 			fontColor = { 1, 1, 1, 1 },
 		},
 		
-		-- prot fcfs
-		pfcfs = {
-			"sor",
-			"hotr",
-			"hs",
-			"cons",
-			"jol",
-		},
-		
 		-- behavior
-		highlight = true,
-		highlightChecked = true,
 		updatesPerSecond = 10,
 		updatesPerSecondAuras = 5,
-		manaCons = 0,
-		manaConsPerc = 0,
-		manaDP = 0,
-		manaDPPerc = 0,
-		gcdDpSs = 0,
-		percGcdDp = 0,						-- if mana is under this value % ignore the "delay" for dp
 		delayedStart = 5,
 		rangePerSkill = false,
+		csBoost = 0.5,
 		
 		-- layout of the 2 skill buttons
 		layout = {
@@ -225,89 +179,7 @@ local defaults = {
 		
 		-- aura buttons
 		-- 4 examples, rest init to "blank" later
-		auras = {
-			-- 1
-			-- avenging wrath
-			{
-				enabled = false,
-				data = {
-					exec = "AuraButtonExecSkillVisibleAlways",
-					spell = awSpellName,
-					texture = "",
-					unit = "",		-- target
-					byPlayer = true,	
-				},
-				layout = {
-					size = 30,
-					x = 0,
-					y = 5,
-					alpha = 1,
-					point = "BOTTOMRIGHT",
-					pointParent = "BOTTOMLEFT",
-				},
-			},
-			
-			-- 2
-			-- divine plea
-			{
-				enabled = false,
-				data = {
-					exec = "AuraButtonExecSkillVisibleNoCooldown",
-					spell = dpSpellName,
-					unit = "",
-					byPlayer = true,
-				},
-				layout = {
-					size = 30,
-					x = -35,
-					y = 5,
-					alpha = 1,
-					point = "BOTTOMRIGHT",
-					pointParent = "BOTTOMLEFT",
-				},
-			},
-			
-			-- 3
-			-- sov
-			{
-				enabled = false,
-				data = {
-					exec = "AuraButtonExecGenericDebuff",
-					spell = sovName,
-					unit = "target",
-					byPlayer = true,					
-				},
-				layout = {
-					size = 30,
-					x = 0,
-					y = 40,
-					alpha = 1,
-					point = "BOTTOMRIGHT",
-					pointParent = "BOTTOMLEFT",
-				},
-			},
-			
-			
-			-- 4
-			-- taow
-			{
-				enabled = false,
-				data = {
-					exec = "AuraButtonExecGenericBuff",
-					spell = taowSpellName,
-					unit = "player",
-					byPlayer = true,
-				},
-				layout = {
-					size = 30,
-					x = -35,
-					y = 40,
-					alpha = 1,
-					point = "BOTTOMRIGHT",
-					pointParent = "BOTTOMLEFT",
-				},
-			}
-		},
+		auras = {},
 		
 		-- Sov bars
 		sov = {
@@ -328,7 +200,7 @@ local defaults = {
 		},
 		
 		swing = {
-			enabled = true,
+			enabled = false,
 			width = 200,
 			height = 10,
 			color = {1, 1, 0, 1},
@@ -340,7 +212,7 @@ local defaults = {
 	}
 }
 -- blank rest of the auras buttons in default options
-for i = 5, MAX_AURAS do 
+for i = 1, MAX_AURAS do 
 	defaults.profile.auras[i] = {
 		enabled = false,
 		data = {
@@ -375,7 +247,7 @@ end
 local throttle = 0
 local throttleAuras = 0
 local throttleSov = 0
-local function OnUpdate(this, elapsed)
+local function OnUpdate(self, elapsed)
 	throttle = throttle + elapsed
 	if throttle > clcret.scanFrequency then
 		throttle = 0
@@ -582,7 +454,7 @@ function clcret:Init()
 	-- test if it's a paladin or not
 	local localclass, trueclass = UnitClass("player")
 	if trueclass ~= "PALADIN" then
-		bprint("|cffff0000Warning!|cffffffff This addon is not designed to work with " .. localclass .. " class. Probably would be better to disable it on this char.")
+		print("clcret:", "|cffff0000Warning!|cffffffff This addon is not designed to work with " .. localclass .. " class. Probably would be better to disable it on this char.")
 		return
 	end
 	
@@ -663,8 +535,9 @@ function clcret:InitSpells()
 		data.name = GetSpellInfo(data.id)
 	end
 	
-	for alias, data in pairs(self.protSpells) do
-		data.name = GetSpellInfo(data.id)
+	for alias, data in pairs(self.fillers) do
+		data.id = spells[alias].id
+		data.name = spells[alias].name
 	end
 end
 function clcret:OnSkin(skin, glossAlpha, gloss, group, _, colors)
@@ -693,9 +566,9 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- print fcfs
 function clcret:DisplayFCFS()
-	bprint("Active Retribution FCFS:")
+	print("clcret:", "Active Retribution FCFS:")
 	for i, data in ipairs(pq) do
-		bprint(i .. " " .. data.name)
+		print("clcret:", i .. " " .. data.name)
 	end
 end
 
@@ -706,11 +579,11 @@ function clcret:EditQueue(args)
 	-- add args to options
 	local num = 0
 	for i, arg in ipairs(list) do
-		if self.spells[arg] then
+		if self.fillers[arg] then
 			num = num + 1
 			db.fcfs[num] = arg
 		else
-			bprint(arg .. " not found")
+			print("clcret:", arg .. " not found")
 		end
 	end
 	
@@ -744,8 +617,12 @@ function clcret:UpdateFCFS()
 		if not check[alias] then -- take care of double entries
 			check[alias] = true
 			if alias ~= "none" then
-				numSpells = numSpells + 1
-				newpq[numSpells] = { alias = alias, name = self.spells[alias].name }
+				if not self.fillers[alias] then
+					db.fcfs[i] = "none"
+				else
+					numSpells = numSpells + 1
+					newpq[numSpells] = { alias = alias, name = self.fillers[alias].name }
+				end
 			end
 		end
 	end
@@ -754,20 +631,11 @@ function clcret:UpdateFCFS()
 	
 	-- check if people added enough spells
 	if numSpells < 2 then
-		bprint("You need at least 2 skills in the queue.")
+		print("clcret:", "You need at least 2 skills in the queue.")
 		-- toggle it off
 		db.fullDisable = false
 		self:FullDisableToggle()
 	end
-	
-	
-	newpq = {}
-	-- prot stuff
-	for i = 1, 5 do
-		newpq[i] = { alias = db.pfcfs[i], name = self.protSpells[db.pfcfs[i]].name }
-	end
-	
-	ppq = newpq
 end
 -- ---------------------------------------------------------------------------------------------------------------------
 
@@ -858,21 +726,13 @@ function clcret:PLAYER_TALENT_UPDATE()
 	end
 	
 	-- check talents
-	-- cs for ret
-	local _, _, _, _, csRank = GetTalentInfo(3, 23)
-	-- hotr for prot
-	local _, _, _, _, hotrRank = GetTalentInfo(2, 26)
+	-- zealotry
+	local _, _, _, _, csRank = GetTalentInfo(3, 20)
 	
 	if csRank == 1 then
 		self.spec = "Ret"
 		dq[1] = pq[1].name
 		dq[2] = pq[2].name
-		self:Enable()
-		self:UpdateShowMethod()
-	elseif (hotrRank == 1) and db.protEnabled then
-		self.spec = "Prot"
-		dq[1] = ppq[1].name
-		dq[2] = ppq[2].name
 		self:Enable()
 		self:UpdateShowMethod()
 	else
@@ -1257,7 +1117,7 @@ function clcret:CheckRange()
 		end
 	else
 		-- both skills show melee range
-		range = IsSpellInRange(self.spells["sor"].name, "target")	
+		range = IsSpellInRange(self.spells.cs.name, "target")	
 		if range ~= nil and range == 0 then
 			for i = 1, 2 do
 				buttons[i].texture:SetVertexColor(0.8, 0.1, 0.1)
@@ -1277,320 +1137,221 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- holy blank function
 function clcret:CheckQueueHoly()
-	bprint("This message shouldn't be here")
-end
-
--- prot queue function
-function clcret:CheckQueueProt()
-	local ctime, v, gcd, gcdStart, gcdDuration
-	ctime = GetTime()
-	
-	-- get gcd
-	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
-	if gcdStart > 0 then
-		gcd = gcdStart + gcdDuration - ctime
-	else
-		gcd = 0
-	end
-	
-		
-		-- highlight when used
-	if db.highlight then
-		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
-		if not gcdDuration then return end -- try to solve respec issues
-		if gcdStart > 0 then
-			gcdMS = gcdStart + gcdDuration - ctime
-		else
-			gcdMS = 0
-		end
-		
-		if lastMS == dq[1] then
-			if lastgcd < gcdMS and gcdMS <= 1.5 then
-				-- pressed main skill
-				startgcd = gcdMS
-				clcretSB1:LockHighlight()
-			end
-			lastgcd = gcdMS
-			if (startgcd >= gcdMS) and (gcd > 1) then
-				self:UpdateUI()
-				return
-			end
-			clcretSB1:UnlockHighlight()
-		end
-		lastMS = dq[1]
-		lastgcd = gcdMS
-	end
-	
-	
-	mana = UnitPower("player")
-	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
-	
-	-- update cooldowns
-	for i=1, 5 do
-		v = ppq[i]
-		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
-		if not v.cdDuration then return end -- try to solve respec issues
-		
-		if v.cdStart > 0 then
-			v.cd = v.cdStart + v.cdDuration - ctime
-		else
-			v.cd = 0
-		end
-	end
-
-
-	-- logic lol
-	local min6, min9
-	local x1 = ppq[1].cd
-	local x2 = ppq[2].cd
-	local x3 = ppq[3].cd
-	local x4 = ppq[4].cd
-	local x5 = ppq[5].cd
-	
-	
-	if x5 < x4 and x5 < x3 then
-		min9 = 5
-	elseif x4 < x3 and x4 <= x5 then
-		min9 = 4
-	else
-		min9 = 3
-	end
-	
-	
-	if x1 <= gcd and x2 <= gcd then
-		self:PQD(1, 1)
-		self:PQD(2, min9)
-	else
-		if x2 < x1 then
-			if x1 < 4.5 + gcd then
-				self:PQD(1, 2)
-				self:PQD(2, min9)
-			else
-				self:PQD(1, min9)
-				self:PQD(2, 2)
-			end
-		else
-			if x2 < 4.5 + gcd then
-				self:PQD(1, 1)
-				self:PQD(2, min9)
-			else
-				self:PQD(1, min9)
-				self:PQD(2, 1)
-			end
-		end
-	end
-	self:UpdateUI()
-end
--- safe copy from ppq
-function clcret:PQD(i, j)
-	dq[i] = ppq[j].name
+	print("clcret:", "This message shouldn't be here")
 end
 
 
--- ret queue function
-local delayDP
+
 function clcret:CheckQueueRet()
-	local mana, manaPerc, ctime, gcd, gcdStart, gcdDuration, v
+	csBoost = db.csBoost
+	useInq = false	-- disable this for ptr
+	minHPInq = 3
+	preInq = 5
+
+	local ctime, cdStart, cdDuration, cs, gcd
 	ctime = GetTime()
 	
-	mana = UnitPower("player")
-	manaPerc = floor( mana * 100 / UnitPowerMax("player") + 0.5)
-	
-	if db.gcdDpSs > 0 then
-		if db.percGcdDp > 0 and manaPerc < db.percGcdDp then
-			delayDP = false
-		else
-			delayDP = true
-		end
-	else
-		delayDP = false
-	end
-	
-	-- get gcd
-	gcdStart, gcdDuration = GetSpellCooldown(cleanseSpellName)
-	if gcdStart > 0 then
-		gcd = gcdStart + gcdDuration - ctime
+	-- gcd
+	cdStart, cdDuration = GetSpellCooldown(spells.cls.name)
+	if cdStart > 0 then
+		gcd = cdStart + cdDuration - ctime
 	else
 		gcd = 0
 	end
-
-	-- highlight when used
-	if db.highlight then
-		gcdStart, gcdDuration = GetSpellCooldown(dq[1])
-		if not gcdDuration then return end -- try to solve respec issues
-		if gcdStart > 0 then
-			gcdMS = gcdStart + gcdDuration - ctime
-		else
-			gcdMS = 0
-		end
+	
+	-- get HP, HoL
+	local hp = UnitPower("player", SPELL_POWER_HOLY_POWER)
+	local hol = UnitBuff("player", spellHandOfLight) or false
+	
+	if hp == 3 and hol then
+		-- got lucky, double tv
+		dq[1] = spells.tv.name
+		dq[2] = spells.tv.name
+	else
+		-- didn't get lucky, find out cs + filler cooldowns
 		
-		if lastMS == dq[1] then
-			if lastgcd < gcdMS and gcdMS <= 1.5 then
-				-- pressed main skill
-				startgcd = gcdMS
-				if db.highlightChecked then
-					clcretSB1:SetChecked(true)
+		-- cs
+		cdStart, cdDuration = GetSpellCooldown(spells.cs.name)
+		if cdStart > 0 then
+			cs = cdStart + cdDuration - ctime
+		else
+			cs = 0
+		end
+		cs = cs - gcd - csBoost
+		
+		if hp == 3 or hol then
+			-- tv + x
+			dq[1] = spells.tv.name
+			
+			-- everything now is delayed by 1.5s
+			cs = cs - 1.5  -- adjust cs
+			
+			-- test maybe we don't need to check rest of cooldowns
+			if cs <= 0 then
+				-- got lucky, tv + cs
+				dq[2] = spells.cs.name
+			else
+				-- get cooldowns for fillers
+				local v, cd, index
+				
+				for i = 1, #pq do
+					v = pq[i]
+					v.name = spells[v.alias].name
+					
+					cdStart, cdDuration = GetSpellCooldown(v.name)
+					if cdStart > 0 then
+						v.cd = cdStart + cdDuration - ctime - 1.5 - gcd
+					else
+						v.cd = 0
+					end
+					
+					if v.alias == "how" then
+						if not IsUsableSpell(v.name) then v.cd = 100 end
+					elseif v.alias == "exo" then
+						if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
+					end
+					
+					-- clamp so sorting is proper
+					if v.cd < 0 then v.cd = 0 end
+				end
+				
+				-- sort cooldowns once, get min cd and the index in the table
+				index = 1
+				cd = pq[1].cd
+				for i = 1, #pq do
+					v = pq[i]
+					if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
+						index = i
+						cd = v.cd
+					end
+				end
+				
+				-- test vs cs
+				if cs <= cd then
+					-- tv + cs
+					dq[2] = spells.cs.name
 				else
-					clcretSB1:LockHighlight()
+					-- tv + f1
+					dq[2] = pq[index].name
 				end
 			end
-			lastgcd = gcdMS
-			if (startgcd >= gcdMS) and (gcd > 1) then
-				self:UpdateUI()
-				return
-			end
-			clcretSB1:UnlockHighlight()
-			clcretSB1:SetChecked(false)
-		end
-		lastMS = dq[1]
-		lastgcd = gcdMS
-	end
-	
-	-- update cooldowns
-	for i = 1, numSpells do
-		v = pq[i]
-		
-		v.cdStart, v.cdDuration = GetSpellCooldown(v.name)
-		if not v.cdDuration then return end -- try to solve respec issues
-		
-		if v.cdStart > 0 then
-			v.cd = v.cdStart + v.cdDuration - ctime
 		else
-			v.cd = 0
-		end
-		
-		-- ds gcd fix?
-		-- todo: check
-		if v.cd < gcd then v.cd = gcd end
-		
-		-- how check
-		if v.alias == "how" then
-			if not IsUsableSpell(v.name) then v.cd = 100 end
-		-- art of war for exorcism check
-		elseif v.alias == "exo" then
-			if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
-		-- consecration min mana
-		elseif v.alias == "cons" then
-			if (db.manaCons > 0 and mana < db.manaCons) or (db.manaConsPerc and manaPerc < db.manaConsPerc) then v.cd = 100 end
-		-- divine plea max mana
-		elseif v.alias == "dp" then
-			if (db.manaDP > 0 and mana > db.manaDP) or (db.manaDPPerc > 0 and manaPerc > db.manaDPPerc) then
-				v.cd = 100
+			-- no tv -> it's either cs + filler or 2 fillers
+			-- TODO : is 2 fillers even viable at low haste?
+			
+			-- get cooldowns for fillers
+			local v, cd, index
+			
+			for i = 1, #pq do
+				v = pq[i]
+				v.name = spells[v.alias].name
+				
+				cdStart, cdDuration = GetSpellCooldown(v.name)
+				if cdStart > 0 then
+					v.cd = cdStart + cdDuration - ctime - gcd
+				else
+					v.cd = 0
+				end
+				
+				if v.alias == "how" then
+					if not IsUsableSpell(v.name) then v.cd = 100 end
+				elseif v.alias == "exo" then
+					if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
+				end
+				
+				-- clamp so sorting is proper
+				if v.cd < 0 then v.cd = 0 end
 			end
+			
+			-- sort cooldowns once, get min cd and the index in the table
+			index = 1
+			cd = pq[1].cd
+			for i = 1, #pq do
+				v = pq[i]
+				if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
+					index = i
+					cd = v.cd
+				end
+			end
+			
+			-- test vs cs
+			if cs <= cd then
+				-- cs + f1
+				dq[1] = spells.cs.name
+				if hp == 2 then
+					-- 3 hp ability
+					dq[2] = spells.tv.name
+				else
+					dq[2] = pq[index].name
+				end
+			else
+				-- f1 + cs or f2
+				dq[1] = pq[index].name
+				
+				-- delay everything by 1.5 now
+				-- todo: take haste into account here, since s1 might be a spell
+				cs = cs - 1.5
+				
+				-- one more hope with cs
+				if cs <= 0 then
+					-- f1 + cs
+					dq[2] = spells.cs.name
+				else
+					-- worst case scenario possible
+					pq[index].cd = 1000 -- delay last used skill a lot
+					
+					-- get new clamped cooldowns
+					for i = 1, #pq do
+						v.cd = v.cd - 1.5
+						if v.cd < 0 then v.cd = 0 end
+					end
+					
+					-- get min again
+					index = 1
+					cd = pq[1].cd
+					for i = 1, #pq do
+						v = pq[i]
+						if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
+							index = i
+							cd = v.cd
+						end
+					end
+						
+					-- test vs cs
+					if cs <= cd then
+						-- f1 + cs
+						dq[2] = spells.cs.name
+					else
+						-- f1 + f2
+						dq[2] = pq[index].name
+					end
+				end
+			end
+			
 		end
-		
-		-- adjust to gcd
-		v.cd = v.cd - gcd
-		--[[ DEBUG
-		v.xcd = v.cd
-		--]]
 	end
 	
-	--[[
-	self:GetBest(1)
-	self:GetBest(2)
-	--]]
-	
-	---[[
-	self:GetSkills()
-	--]]
+	-- inquisition, if active and needed -> change first tv in dq1 or dq2 with inquisition
+	if useInq then
+		local inqLeft = 0
+		local name, rank, icon, count, debuffType, duration, expirationTime = UnitBuff("player", spells.inq.name)
+		if name then 
+			inqLeft = expirationTime - ctime
+		end
+		
+		-- test time for 2nd skill
+		-- check for spell gcd?
+		if (inqLeft - 1.5) <= preInq then
+			if (dq[1] == spells.tv.name) and (inqLeft <= preInq) then
+				dq[1] = spells.inq.name
+			elseif (dq[2] == spells.tv.name) and ((inqLeft - 1.5) <= preInq) then
+				dq[2] = spells.inq.name
+			end
+		end
+	end
 	
 	self:UpdateUI()
 end
--- gets best skill from pq according to priority and cooldown
---[[
-function clcret:GetBest(pos)
-	local cd, index, v
-	index = 1
-	cd = pq[1].cd
-	
-	for i = 1, numSpells do
-		v = pq[i]
-		-- if skill is a better choice change index
-		if v.cd < cd or (v.cd == cd and i < index) then
-			index = i
-			cd = v.cd
-		end
-		-- lower the cd for the next pass
-		-- TODO check this more
-		if db.gcdDpSs > 0 then
-		 	if not (v.alias == "dp" or v.alias == "ss") then
-				v.cd = max(0, v.cd - 1.5)
-			else
-				v.cd = v.cd + db.dpssLatency
-			end
-		else
-			v.cd = max(0, v.cd - 1.5)
-		end
-	end
-	dq[pos] = pq[index].name
-	pq[index].cd = 100
-end
---]]
-
----[[
---	algorithm:
---		get min cooldown
---		adjust all the others to cd - mincd - 1.5
---		get min cooldown
-
-
--- returns the lowest cooldown and skill index
-function clcret:GetMinCooldown()
-	local cd, index, v
-	index = 1
-	cd = pq[1].cd
-	-- old bug, fix them even if they are first
-	if (pq[1].alias == "dp" and delayDP) or (pq[1].alias == "ss") then
-		cd = cd + db.gcdDpSs
-	end
-	
-	-- get min cooldown
-	for i = 1, numSpells do
-		v = pq[i]
-		-- if skill is a better choice change index
-		if (v.alias == "dp" and delayDP) or (v.alias == "ss") then	
-			-- special case with delay
-			if ((v.cd + db.gcdDpSs) < cd) or (((v.cd + db.gcdDpSs) == cd) and (i < index)) then
-				index = i
-				cd = v.cd
-			end
-		else
-			-- normal check
-			if (v.cd < cd) or ((v.cd == cd and i < index)) then
-				index = i
-				cd = v.cd
-			end
-		end
-	end
-	
-	return cd, index
-end
-
--- gets first and 2nd skill in the queue
-function clcret:GetSkills()
-	local cd, index, v
-	
-	-- dq[1] = skill with shortest cooldown
-	cd, index = self:GetMinCooldown()
-	dq[1] = pq[index].name
-	pq[index].cd = 100
-	
-	-- adjust cd
-	cd = cd + 1.5
-	
-	-- substract the cd from prediction cooldowns
-	for i = 1, numSpells do
-		v = pq[i]
-		v.cd = max(0, v.cd - cd)
-	end
-	
-	-- dq[2] = get the skill with shortest cooldown
-	cd, index = self:GetMinCooldown()
-	dq[2] = pq[index].name
-end
-
---]]
 -- ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -1706,9 +1467,9 @@ function clcret:InitUI()
 	frame:EnableMouse(false)
 	frame:SetMovable(true)
 	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", function() this:StartMoving() end)
-	frame:SetScript("OnDragStop", function()
-		this:StopMovingOrSizing()
+	frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+	frame:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
 		db.x = clcretFrame:GetLeft()
 		db.y = clcretFrame:GetBottom()
 	end)
@@ -2004,7 +1765,7 @@ function clcret:PresetFrame_Update()
 	
 	local preset = "no preset"
 	for i = 1, MAX_PRESETS do
-		-- bprint(rotation, " | ", db.presets[i].data)
+		-- print("clcret:", rotation, " | ", db.presets[i].data)
 		if db.presets[i].data == rotation and rotation ~= "" then
 			preset = db.presets[i].name
 			break
@@ -2055,14 +1816,14 @@ function clcret:Preset_Load(index)
 	if db.presets[index].name == "" then return end
 
 	if (not self.presetFrame) or (not self.presetFrame:IsVisible()) then
-		bprint("Loading preset:", db.presets[index].name)
+		print("clcret:", "Loading preset:", db.presets[index].name)
 	end
 	
 	local list = { strsplit(" ", db.presets[index].data) }
 
 	local num = 0
 	for i = 1, #list do
-		if self.spells[list[i]] then
+		if self.fillers[list[i]] then
 			num = num + 1
 			db.fcfs[num] = list[i]
 		end
@@ -2166,9 +1927,9 @@ local ceAuraRemoved = {
 function clcret:ICDReportMinCd(args)
 	local id = tonumber(args)
 	if icd.data[id] then
-		bprint(icd.data[id].mincd)
+		print("clcret:", icd.data[id].mincd)
 	else
-		bprint("No data found")
+		print("clcret:", "No data found")
 	end
 end
 
@@ -2229,7 +1990,7 @@ function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourc
 			icd.data[i].last = icd.data[i].start
 			-- check if it's a smaller cd than the one used
 			if icd.data[i].start > 0 and icd.data[i].cd < icd.data[i].durationICD then
-				bprint("Warning: " .. spellId .. "(" .. GetSpellInfo(spellId) .. ") activated after " .. icd.data[i].cd .. " seconds and specified ICD is " .. icd.data[i].durationICD .. " seconds.")
+				print("clcret:", "Warning: " .. spellId .. "(" .. GetSpellInfo(spellId) .. ") activated after " .. icd.data[i].cd .. " seconds and specified ICD is " .. icd.data[i].durationICD .. " seconds.")
 			end
 			-- save min cd
 			if icd.data[i].cd < icd.data[i].mincd then icd.data[i].mincd = icd.data[i].cd end

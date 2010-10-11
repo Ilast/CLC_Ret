@@ -14,7 +14,7 @@ local MAX_PRESETS = 10
 
 local function GetSpellChoice()
 	local spellChoice = { none = "None" }
-	for alias, data in pairs(clcret.spells) do
+	for alias, data in pairs(clcret.fillers) do
 		spellChoice[alias] = data.name
 	end
 	
@@ -308,28 +308,6 @@ Commands:
 					get = function(info) return db.fullDisable end,
 					set = function(info, val) clcret:FullDisableToggle() end,
 				},
-				__protEnabled = {
-					order = 30,
-					type = "header",
-					name = "Protection Module",
-				},
-				____protEnabled = {
-					order = 31,
-					type = "description",
-					name = "|cffff0000WARNING|cffffffff The protection module wasn't tested at all in the new version. It's also very unlikely that I will test it anytime soon.\nSo use it at your own risk and let me know what problems there you have with it (tickets or comments on the site where you downloaded the addon from.",
-				},
-				-- full disable toggle
-				protEnabled = {
-					order = 32,
-					width = "full",
-					type = "toggle",
-					name = "Enable prot module",
-					get = function(info) return db.protEnabled end,
-					set = function(info, val)
-						db.protEnabled = val
-						clcret:PLAYER_TALENT_UPDATE()
-					end,
-				},
 			},
 		},
 	
@@ -547,30 +525,6 @@ Commands:
 					end,
 				},
 			
-				__highlight = {
-					order = 10,
-					type = "header",
-					name = "Highlight Main Skill",
-				},
-				____highlight = {
-					order = 11,
-					type = "description",
-					name = "Highlights the main skill when an action is performed until the server confirms the action.\nFor Blizzard's default buttons and some BF skins \"Checked\" state is a lot more visible than \"Highlight\" state. If that's the case, enable the 2nd option too.",
-				},
-				highlight = {
-					order = 12,
-					type = "toggle",
-					name = "Highlight on use",
-					get = function(info) return db.highlight end,
-					set = function(info, val) db.highlight = val end,
-				},
-				highlightChecked = {
-					order = 13,
-					type = "toggle",
-					name = "Use \"Checked\" state",
-					get = function(info) return db.highlightChecked end,
-					set = function(info, val) db.highlightChecked = val end,
-				},
 				__rangePerSkill = {
 					order = 15,
 					type = "header",
@@ -609,100 +563,25 @@ Commands:
 					get = function(info) return db.delayedStart end,
 					set = function(info, val) db.delayedStart = val end,
 				},
-				__manaCons = {
-					order = 25,
-					type = "header",
-					name = "Consecration Mana Settings",
-				},
-				____manaCons = {
-					order = 26,
-					type = "description",
-					name = "If your mana drops under the specified value Consecration will be ignored in FCFS detection. A value of 0 deactivates the check.\nFixed value takes precedence so if you want to use the percentage value, set fixed one to 0.",
-				},
-				manaCons = {
-					order = 27,
-					type = "range",
-					name = "Fixed value",
-					min = 0,
-					max = 10000,
-					step = 1,
-					get = function(info) return db.manaCons end,
-					set = function(info, val) db.manaCons = val end,
-				},
-				manaConsPerc = {
-					order = 28,
-					type = "range",
-					name = "Percentage",
-					min = 0,
-					max = 100,
-					step = 1,
-					get = function(info) return db.manaConsPerc end,
-					set = function(info, val) db.manaConsPerc = val end,
-				},
-				__manaDP = {
-					order = 35,
-					type = "header",
-					name = "Divine Plea Mana Settings",
-				},
-				____manaDP = {
-					order = 36,
-					type = "description",
-					name = "If your mana is above the specified value Divine Plea will be ignored in FCFS detection. A value of 0 deactivates the check.\nFixed value takes precedence so if you want to use the percentage value, set fixed one to 0.",
-				},
-				manaDP = {
-					order = 37,
-					type = "range",
-					name = "Fixed value",
-					min = 0,
-					max = 10000,
-					step = 1,
-					get = function(info) return db.manaDP end,
-					set = function(info, val) db.manaDP = val end,
-				},
-				manaDPPerc = {
-					order = 38,
-					type = "range",
-					name = "Percentage",
-					min = 0,
-					max = 100,
-					step = 1,
-					get = function(info) return db.manaDPPerc end,
-					set = function(info, val) db.manaDPPerc = val end,
-				},
-				__gcdDpSs = {
+				__csBoost = {
 					order = 50,
 					type = "header",
-					name = "Extra Delay for DP/SS",
+					name = "Boost CS",
 				},
-				____gcdDpSs = {
+				____csBoost = {
 					order = 51,
 					type = "description",
-					name = "In case you want to use your non damaging abilities (Divine Plea and Sacred Shield) only when it won't delay at all the other abilities adjust this value. A value of 0 disables the check.",
+					name = "When you want to make sure fillers do not clip into the next CS.",
 				},
-				gcdDpSs = {
+				csBoost = {
 					order = 52,
 					type = "range",
 					min = 0,
-					max = 2,
+					max = 1.5,
 					step = 0.1,
 					name = "Extra delay (in seconds)",
-					get = function(info) return db.gcdDpSs end,
-					set = function(info, val) db.gcdDpSs = val end,
-				},
-				____percGcdDp = {
-					order = 60,
-					type = "description",
-					name = "If mana percentage drops under this value ignore the extra delay for Divine Plea.",
-				},
-				percGcdDp = {
-					order = 61,
-					type = "range",
-					min = 0,
-					max = 100,
-					step = 1,
-					name = "Ignore extra delay for DP under this percentage",
-					get = function(info) return db.percGcdDp end,
-					set = function(info, val) db.percGcdDp = val end,
+					get = function(info) return db.csBoost end,
+					set = function(info, val) db.csBoost = val end,
 				},
 			},
 		},
@@ -717,12 +596,6 @@ Commands:
 				ret = {
 					order = 1,
 					name = "Retribution",
-					type = "group",
-					args = {},
-				},
-				prot = {
-					order = 5,
-					name = "Protection",
 					type = "group",
 					args = {},
 				},
@@ -1496,35 +1369,6 @@ for i = 1, 10 do
 			clcret:PresetFrame_Update()
 		end,
 		values = GetSpellChoice,
-	}
-end
-
-root = options.args.fcfs.args.prot.args
-for i = 1, 2 do
-	root["p" .. i] = {
-		order = i,
-		name = "6",
-		type = "select",
-		get = function(info) return db.pfcfs[i] end,
-		set = function(info, val)
-			db.pfcfs[i] = val
-			clcret:UpdateFCFS()
-		end,
-		values = { sor = clcret.protSpells["sor"].name, hotr = clcret.protSpells["hotr"].name }
-	}
-end
-
-for i = 3, 5 do
-	root["p" .. i] = {
-		name = "9",
-		order = i,
-		type = "select",
-		get = function(info) return db.pfcfs[i] end,
-		set = function(info, val)
-			db.pfcfs[i] = val
-			clcret:UpdateFCFS()
-		end,
-		values = { hs = clcret.protSpells["hs"].name, cons = clcret.protSpells["cons"].name, jol = clcret.protSpells["jol"].name }
 	}
 end
 

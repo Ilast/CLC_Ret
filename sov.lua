@@ -6,7 +6,9 @@ local function bprint(...)
 	DEFAULT_CHAT_FRAME:AddMessage("CLCRet.sovTracking: " .. table.concat(t, " "))
 end
 
-local sovId, sovName, sovSpellTexture = unpack(clcret.sovData)
+local sovName, sovId, sovSpellTexture
+sovId = 31803
+sovName, _, sovSpellTexture = GetSpellInfo(sovId)
 
 local BGTEX = "Interface\\AddOns\\clcret\\textures\\minimalist"
 local BORDERTEX = "Interface\\AddOns\\clcret\\textures\\border"
