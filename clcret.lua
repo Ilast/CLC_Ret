@@ -1490,6 +1490,10 @@ function clcret:InitUI()
 	buttons[1]:SetAlpha(opt.alpha)
 	buttons[1]:Show()
 	
+	-- anchor the holy power bar here
+	PaladinPowerBar:ClearAllPoints()
+	PaladinPowerBar:SetPoint("TOP", buttons[1], "BOTTOM", 0, 10)
+	
 	-- init secondary skill button
 	opt = db.layout["button2"]
 	buttons[2] = self:CreateButton("SB2", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills")
