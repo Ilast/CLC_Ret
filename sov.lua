@@ -347,7 +347,7 @@ function clcret:CreateSovBar(index)
 	
 	-- icon
 	frame.icon = frame:CreateTexture(nil, "BACKGROUND")
-	frame.icon:SetTexture(GetSpellTexture(sovSpellTexture))
+	frame.icon:SetTexture(sovSpellTexture)
 	
 	frame.border = frame:CreateTexture(nil, "BORDER")
 	frame.border:SetTexture(BORDERTEX)
