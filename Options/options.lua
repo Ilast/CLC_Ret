@@ -259,6 +259,34 @@ Commands:
 						clcret:ToggleLock()
 					end,
 				},
+				__adjustHPBar = {
+					order = 2,
+					type = "header",
+					name = "",
+				},
+				____adjustHPBar = {
+					order = 3,
+					type = "description",
+					name = "|cffff0000WARNING|cffffffff Adjusting the HP bar will automatically reload your UI."
+				},
+				adjustHPBar = {
+					order = 4,
+					type = "select",
+					name = "Adjust Holy Power Bar",
+					width = "single",
+					get = function(info) if db.adjustHPBar then return 2 else return 1 end end,
+					set = function(info, val)
+						if val == 1 then db.adjustHPBar = false
+						else db.adjustHPBar = true end
+						ReloadUI()
+					end,
+					values = { "No", "Yes" }
+				},
+				_____adjustHPBar = {
+					order = 5,
+					type = "description",
+					name = ""
+				},
 				
 				show = {
 					order = 10,

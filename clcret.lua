@@ -105,6 +105,7 @@ local defaults = {
 		fullDisable = false,
 		strata = 3,
 		grayOOM = false,
+		adjustHPBar = true,
 		
 		lbf = {
 			Skills = {},
@@ -735,9 +736,28 @@ function clcret:PLAYER_TALENT_UPDATE()
 		dq[2] = pq[2].name
 		self:Enable()
 		self:UpdateShowMethod()
+		
+		if db.adjustHPBar then
+			-- anchor the holy power bar to main skill
+			buttons[1].unit = "player"
+			PaladinPowerBar:SetParent(buttons[1])
+			PaladinPowerBar:SetScale(UIParent:GetScale())
+			
+			PaladinPowerBar:ClearAllPoints()
+			PaladinPowerBar:SetPoint("TOP", buttons[1], "BOTTOM", 0, 9)
+		end
 	else
 		self.spec = "Holy"
 		self:Disable()
+		
+		if db.adjustHPBar then
+			-- restore power bar to default
+			PaladinPowerBar:SetParent("PlayerFrame")
+			PaladinPowerBar:ClearAllPoints()
+			PaladinPowerBar:SetScale(1)
+			PaladinPowerBar:SetAlpha(1)
+			PaladinPowerBar:SetPoint("TOP", "PlayerFrame", "BOTTOM", 43, 39)
+		end
 	end
 	
 	self["CheckQueue"] = self["CheckQueue" .. self.spec]
@@ -1489,14 +1509,6 @@ function clcret:InitUI()
 	buttons[1] = self:CreateButton("SB1", opt.size, opt.point, clcretFrame, opt.pointParent, opt.x, opt.y, "Skills", true)
 	buttons[1]:SetAlpha(opt.alpha)
 	buttons[1]:Show()
-	
-	-- anchor the holy power bar here
-	buttons[1].unit = "player"
-	PaladinPowerBar:SetParent(buttons[1])
-	PaladinPowerBar:SetScale(UIParent:GetScale())
-	
-	PaladinPowerBar:ClearAllPoints()
-	PaladinPowerBar:SetPoint("TOP", buttons[1], "BOTTOM", 0, 9)
 	
 	-- init secondary skill button
 	opt = db.layout["button2"]
