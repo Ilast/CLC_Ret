@@ -1491,8 +1491,12 @@ function clcret:InitUI()
 	buttons[1]:Show()
 	
 	-- anchor the holy power bar here
+	buttons[1].unit = "player"
+	PaladinPowerBar:SetParent(buttons[1])
+	PaladinPowerBar:SetScale(UIParent:GetScale())
+	
 	PaladinPowerBar:ClearAllPoints()
-	PaladinPowerBar:SetPoint("TOP", buttons[1], "BOTTOM", 0, 10)
+	PaladinPowerBar:SetPoint("TOP", buttons[1], "BOTTOM", 0, 9)
 	
 	-- init secondary skill button
 	opt = db.layout["button2"]
