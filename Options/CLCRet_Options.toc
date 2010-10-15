@@ -8,6 +8,10 @@
 ## X-Curse-Project-Name: Retribution FCFS helper (clcret)
 ## X-Curse-Project-ID: clcret
 ## X-Curse-Repository-ID: wow/clcret/mainline
+## X-Curse-Packaged-Version: v.1.4.01.003
+## X-Curse-Project-Name: Retribution FCFS helper (clcret)
+## X-Curse-Project-ID: clcret
+## X-Curse-Repository-ID: wow/clcret/mainline
 
 #@no-lib-strip@
 embeds.xml

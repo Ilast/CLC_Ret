@@ -11,8 +11,13 @@ local borderType = {
 	"Interface\\AddOns\\clcret\\textures\\border_heavy"				-- heavy
 }
 
-local taowSpellName = GetSpellInfo(59578) 				-- the art of war proc
-local spellHandOfLight = GetSpellInfo(90174)			-- hand of light proc
+local buffTheArtOfWar = GetSpellInfo(59578)
+local buffHandOfLight = GetSpellInfo(90174)
+local buffZealotry = GetSpellInfo(85696)
+
+local myppb -- paladinpowerbar
+clcret.myppbParent = CreateFrame("Frame")
+clcret.myppbParent.unit = "player"
 
 -- priority queue generated from fcfs
 local pq
@@ -61,7 +66,7 @@ local spells = {
 }
 clcret.spells = spells
 
-local fillers = { exo = {}, how = {}, j = {}, hw = {}, cons = {} }
+local fillers = { tv = {}, cs = {}, exo = {}, how = {}, j = {}, hw = {}, cons = {} }
 clcret.fillers = fillers
 
 -- used for the highlight lock on skill use
@@ -91,7 +96,7 @@ local strataLevels = {
 -- ---------------------------------------------------------------------------------------------------------------------
 local defaults = {
 	profile = {
-		version = 1,
+		version = 4,
 		-- layout settings for the main frame (the black box you toggle on and off)\
 		zoomIcons = true,
 		noBorder = false,
@@ -105,7 +110,14 @@ local defaults = {
 		fullDisable = false,
 		strata = 3,
 		grayOOM = false,
+		
+		-- paladin power bar
 		adjustHPBar = true,
+		hideBlizPPB = false,
+		ppbX = 0,
+		ppbY = 0,
+		ppbScale = 1,
+		ppbAlpha = 1,
 		
 		lbf = {
 			Skills = {},
@@ -122,9 +134,7 @@ local defaults = {
 		
 		-- fcfs
 		fcfs = {
-			"exo", "how", "j", "hw",
-			"none",
-			"none",
+			"tv", "how", "cs", "exo", "j", "hw",
 			"none",
 			"none",
 			"none",
@@ -459,6 +469,19 @@ function clcret:Init()
 		return
 	end
 	
+	-- version check
+	if not db.stupidCheck2 then
+		-- static popup dialog
+		StaticPopupDialogs["CLCRET"] = {
+			text = "CLCRet:\nCS and TV are again included into the rotation. Make sure to adjust your settings.\nHoly Power Bar settings have been moved to the appearance tab.",
+			button1 = OKAY,
+			timeout = 0,
+		}
+		StaticPopup_Show("CLCRET")
+		db.fcfs = { "tv", "how", "cs", "exo", "j", "hw", "none", "none", "none", "none", }
+		db.stupidCheck2 = true
+	end
+	
 	playerName = UnitName("player")
 
 	-- get player name for sov tracking 
@@ -493,6 +516,10 @@ function clcret:Init()
 	self:RegisterChatCommand("clcreportmincd", "ICDReportMinCd") -- report the min cd for that button
 	
 	self:UpdateEnabledAuraButtons()
+	
+	-- create the power bar
+	self.CreatePPB()
+	self:UpdatePPB()
 	
 	self:UpdateFCFS()
 	self:InitUI()
@@ -737,27 +764,11 @@ function clcret:PLAYER_TALENT_UPDATE()
 		self:Enable()
 		self:UpdateShowMethod()
 		
-		if db.adjustHPBar then
-			-- anchor the holy power bar to main skill
-			buttons[1].unit = "player"
-			PaladinPowerBar:SetParent(buttons[1])
-			PaladinPowerBar:SetScale(UIParent:GetScale())
-			
-			PaladinPowerBar:ClearAllPoints()
-			PaladinPowerBar:SetPoint("TOP", buttons[1], "BOTTOM", 0, 9)
-		end
+		myppb:SetParent(self.frame)
 	else
 		self.spec = "Holy"
+		myppb:SetParent(clcret.myppbParent)
 		self:Disable()
-		
-		if db.adjustHPBar then
-			-- restore power bar to default
-			PaladinPowerBar:SetParent("PlayerFrame")
-			PaladinPowerBar:ClearAllPoints()
-			PaladinPowerBar:SetScale(1)
-			PaladinPowerBar:SetAlpha(1)
-			PaladinPowerBar:SetPoint("TOP", "PlayerFrame", "BOTTOM", 43, 39)
-		end
 	end
 	
 	self["CheckQueue"] = self["CheckQueue" .. self.spec]
@@ -1171,6 +1182,13 @@ function clcret:CheckQueueRet()
 	local ctime, cdStart, cdDuration, cs, gcd
 	ctime = GetTime()
 	
+	local preCS = true -- skils before CS are boosted too
+
+	-- get HP, HoL
+	local hp = UnitPower("player", SPELL_POWER_HOLY_POWER)
+	local hol = UnitBuff("player", buffHandOfLight) or false
+	local zeal = UnitBuff("player", buffZealotry) or false
+	
 	-- gcd
 	cdStart, cdDuration = GetSpellCooldown(spells.cls.name)
 	if cdStart > 0 then
@@ -1179,177 +1197,91 @@ function clcret:CheckQueueRet()
 		gcd = 0
 	end
 	
-	-- get HP, HoL
-	local hp = UnitPower("player", SPELL_POWER_HOLY_POWER)
-	local hol = UnitBuff("player", spellHandOfLight) or false
+	-- get cooldowns for fillers
+	local v, cd, index
 	
-	if hp == 3 and hol then
-		-- got lucky, double tv
-		dq[1] = spells.tv.name
-		dq[2] = spells.tv.name
-	else
-		-- didn't get lucky, find out cs + filler cooldowns
+	for i = 1, #pq do
+		v = pq[i]
 		
-		-- cs
-		cdStart, cdDuration = GetSpellCooldown(spells.cs.name)
+		cdStart, cdDuration = GetSpellCooldown(v.name)
 		if cdStart > 0 then
-			cs = cdStart + cdDuration - ctime
+			v.cd = cdStart + cdDuration - ctime - gcd
 		else
-			cs = 0
+			v.cd = 0
 		end
-		cs = cs - gcd - csBoost
 		
-		if hp == 3 or hol then
-			-- tv + x
-			dq[1] = spells.tv.name
-			
-			-- everything now is delayed by 1.5s
-			cs = cs - 1.5  -- adjust cs
-			
-			-- test maybe we don't need to check rest of cooldowns
-			if cs <= 0 then
-				-- got lucky, tv + cs
-				dq[2] = spells.cs.name
-			else
-				-- get cooldowns for fillers
-				local v, cd, index
-				
-				for i = 1, #pq do
-					v = pq[i]
-					v.name = spells[v.alias].name
-					
-					cdStart, cdDuration = GetSpellCooldown(v.name)
-					if cdStart > 0 then
-						v.cd = cdStart + cdDuration - ctime - 1.5 - gcd
-					else
-						v.cd = 0
-					end
-					
-					if v.alias == "how" then
-						if not IsUsableSpell(v.name) then v.cd = 100 end
-					elseif v.alias == "exo" then
-						if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
-					end
-					
-					-- clamp so sorting is proper
-					if v.cd < 0 then v.cd = 0 end
-				end
-				
-				-- sort cooldowns once, get min cd and the index in the table
-				index = 1
-				cd = pq[1].cd
-				for i = 1, #pq do
-					v = pq[i]
-					if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
-						index = i
-						cd = v.cd
-					end
-				end
-				
-				-- test vs cs
-				if cs <= cd then
-					-- tv + cs
-					dq[2] = spells.cs.name
-				else
-					-- tv + f1
-					dq[2] = pq[index].name
-				end
+		-- boost skills before CS
+		if preCS then v.cd = v.cd - csBoost end
+		
+		if v.alias == "how" then
+			if not IsUsableSpell(v.name) then
+				v.cd = 100
 			end
-		else
-			-- no tv -> it's either cs + filler or 2 fillers
-			-- TODO : is 2 fillers even viable at low haste?
-			
-			-- get cooldowns for fillers
-			local v, cd, index
-			
-			for i = 1, #pq do
-				v = pq[i]
-				v.name = spells[v.alias].name
-				
-				cdStart, cdDuration = GetSpellCooldown(v.name)
-				if cdStart > 0 then
-					v.cd = cdStart + cdDuration - ctime - gcd
-				else
-					v.cd = 0
-				end
-				
-				if v.alias == "how" then
-					if not IsUsableSpell(v.name) then v.cd = 100 end
-				elseif v.alias == "exo" then
-					if UnitBuff("player", taowSpellName) == nil then v.cd = 100 end
-				end
-				
-				-- clamp so sorting is proper
-				if v.cd < 0 then v.cd = 0 end
+		elseif v.alias == "tv" then
+			if not (hol or hp == 3) then
+				v.cd = 15
 			end
-			
-			-- sort cooldowns once, get min cd and the index in the table
-			index = 1
-			cd = pq[1].cd
-			for i = 1, #pq do
-				v = pq[i]
-				if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
-					index = i
-					cd = v.cd
-				end
-			end
-			
-			-- test vs cs
-			if cs <= cd then
-				-- cs + f1
-				dq[1] = spells.cs.name
-				if hp == 2 then
-					-- 3 hp ability
-					dq[2] = spells.tv.name
-				else
-					dq[2] = pq[index].name
-				end
-			else
-				-- f1 + cs or f2
-				dq[1] = pq[index].name
-				
-				-- delay everything by 1.5 now
-				-- todo: take haste into account here, since s1 might be a spell
-				cs = cs - 1.5
-				
-				-- one more hope with cs
-				if cs <= 0 then
-					-- f1 + cs
-					dq[2] = spells.cs.name
-				else
-					-- worst case scenario possible
-					pq[index].cd = 1000 -- delay last used skill a lot
-					
-					-- get new clamped cooldowns
-					for i = 1, #pq do
-						v.cd = v.cd - 1.5
-						if v.cd < 0 then v.cd = 0 end
-					end
-					
-					-- get min again
-					index = 1
-					cd = pq[1].cd
-					for i = 1, #pq do
-						v = pq[i]
-						if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
-							index = i
-							cd = v.cd
-						end
-					end
-						
-					-- test vs cs
-					if cs <= cd then
-						-- f1 + cs
-						dq[2] = spells.cs.name
-					else
-						-- f1 + f2
-						dq[2] = pq[index].name
-					end
-				end
-			end
-			
+		elseif v.alias == "cs" then
+			preCS = false
+		elseif v.alias == "exo" then
+			if UnitBuff("player", buffTheArtOfWar) == nil then v.cd = 100 end
+		end
+		
+		-- clamp so sorting is proper
+		if v.cd < 0 then v.cd = 0 end
+	end
+	
+	-- sort cooldowns once, get min cd and the index in the table
+	index = 1
+	cd = pq[1].cd
+	for i = 1, #pq do
+		v = pq[i]
+		if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
+			index = i
+			cd = v.cd
 		end
 	end
+	
+	dq[1] = pq[index].name
+	
+	-- adjust hp for next skill
+	if dq[1] == spells.cs.name then
+		if zeal then
+			hp = hp + 3
+		else
+			hp = hp + 1
+		end
+	elseif dq[1] == spells.tv.name and not hol then
+		hp = 0
+	end
+	pq[index].cd = 101 -- put first one at end of queue
+	
+	-- get new clamped cooldowns
+	for i = 1, #pq do
+		v = pq[i]
+		if v.name == spells.tv.name then
+			if hp >= 3 then
+				v.cd = 0
+			else
+				v.cd = 100
+			end
+		else
+			v.cd = v.cd - 1.5 - cd
+			if v.cd < 0 then v.cd = 0 end
+		end
+	end
+	
+	-- sort again
+	index = 1
+	cd = pq[1].cd
+	for i = 1, #pq do
+		v = pq[i]
+		if (v.cd < cd) or ((v.cd == cd) and (i < index)) then
+			index = i
+			cd = v.cd
+		end
+	end
+	dq[2] = pq[index].name
 	
 	-- inquisition, if active and needed -> change first tv in dq1 or dq2 with inquisition
 	if useInq then
@@ -1466,6 +1398,7 @@ end
 -- update scale, alpha, position for main frame
 function clcret:UpdateFrameSettings()
 	self.frame:SetScale(max(db.scale, 0.01))
+	clcret.myppbParent:SetScale(max(db.scale, 0.01) * UIParent:GetScale())
 	self.frame:SetAlpha(db.alpha)
 	self.frame:SetPoint("BOTTOMLEFT", db.x, db.y)
 end
@@ -1479,6 +1412,7 @@ end
 -- initialize main frame and all the buttons
 function clcret:InitUI()
 	local frame = CreateFrame("Frame", "clcretFrame", UIParent)
+	frame.unit = "player"
 	frame:SetFrameStrata(strataLevels[db.strata])
 	frame:SetWidth(db.layout.button1.size + 10)
 	frame:SetHeight(db.layout.button1.size + 10)
@@ -2020,3 +1954,108 @@ function clcret:COMBAT_LOG_EVENT_UNFILTERED(event, timestamp, combatEvent, sourc
 	end
 end
 -- ---------------------------------------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- create a hp bar similar to blizzard's xml code
+--------------------------------------------------------------------------------
+function clcret:UpdatePPB()
+	if db.adjustHPBar then
+		myppb:Show()
+		myppb:ClearAllPoints()
+		myppb:SetScale(db.ppbScale)
+		myppb:SetAlpha(db.ppbAlpha)
+		myppb:SetPoint("CENTER", UIParent, "CENTER", db.ppbX, db.ppbY)
+	else
+		myppb:Hide()
+	end
+	
+	if db.hideBlizPPB then
+		PaladinPowerBar:Hide()
+	else
+		PaladinPowerBar:Show()
+	end
+end
+function clcret.CreatePPB()
+	local tfile = [[Interface\AddOns\CLCRet\textures\PaladinPowerTextures]]
+	myppb = CreateFrame("Frame", "clcretPaladinPowerBar", clcret.myppbParent)
+	myppb:SetSize(136, 39)
+	myppb:SetFrameStrata(strataLevels[db.strata])
+	local t = myppb:CreateTexture("clcretPaladinPowerBarBG", "BACKGROUND", nil, -5)
+	t:SetPoint("TOP")
+	t:SetSize(136, 39)
+	t:SetTexture(tfile)
+	t:SetTexCoord(0.00390625, 0.53515625, 0.32812500, 0.63281250)
+	-- glow
+	myppb.glow = CreateFrame("Frame", "clcretPaladinPowerBarGlowBG", myppb)
+	myppb.glow:SetAllPoints()
+	t = myppb.glow:CreateTexture("clcretPaladinPowerBarGlowBGTexture", "BACKGROUND", nil, -1)
+	t:SetPoint("TOP")
+	t:SetSize(136, 39)
+	t:SetTexture(tfile)
+	t:SetTexCoord(0.00390625, 0.53515625, 0.00781250, 0.31250000)
+	myppb.glow.pulse = myppb.glow:CreateAnimationGroup()
+	local a = myppb.glow.pulse:CreateAnimation("Alpha")
+	a:SetChange(1) a:SetDuration(0.5) a:SetOrder(1)
+	a = myppb.glow.pulse:CreateAnimation("Alpha")
+	a:SetChange(-1) a:SetStartDelay(0.3) a:SetDuration(0.6) a:SetOrder(2)
+	myppb.glow.pulse:SetScript("OnFinished", function(self) if not self.stopPulse then self:Play() end end)
+	-- rune1
+	myppb.rune1 = CreateFrame("Frame", "clcretPaladinPowerBarRune1", myppb)
+	myppb.rune1:SetPoint("TOPLEFT", 21, -11)
+	myppb.rune1:SetSize(36, 22)
+	t = myppb.rune1:CreateTexture("clcretPaladinPowerBarRune1Texture", "OVERLAY", nil, -1)
+	t:SetAllPoints()
+	t:SetTexture(tfile)
+	t:SetTexCoord(0.00390625, 0.14453125, 0.64843750, 0.82031250)
+	myppb.rune1.activate = myppb.rune1:CreateAnimationGroup()
+	a =	myppb.rune1.activate:CreateAnimation("Alpha")
+	a:SetChange(1) a:SetDuration(0.2) a:SetOrder(1)
+	myppb.rune1.activate:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(1) end)
+	myppb.rune1.deactivate = myppb.rune1:CreateAnimationGroup()
+	a =	myppb.rune1.deactivate:CreateAnimation("Alpha")
+	a:SetChange(-1) a:SetDuration(0.3) a:SetOrder(1)
+	myppb.rune1.deactivate:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(0) end)
+	-- rune2
+	myppb.rune2 = CreateFrame("Frame", "clcretPaladinPowerBarRune2", myppb)
+	myppb.rune2:SetPoint("LEFT", "clcretPaladinPowerBarRune1", "RIGHT")
+	myppb.rune2:SetSize(31, 17)
+	t = myppb.rune2:CreateTexture("clcretPaladinPowerBarRune2Texture", "OVERLAY", nil, -1)
+	t:SetAllPoints()
+	t:SetTexture(tfile)
+	t:SetTexCoord(0.00390625, 0.12500000, 0.83593750, 0.96875000)
+	myppb.rune2.activate = myppb.rune2:CreateAnimationGroup()
+	a =	myppb.rune2.activate:CreateAnimation("Alpha")
+	a:SetChange(1) a:SetDuration(0.2) a:SetOrder(1)
+	myppb.rune2.activate:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(1) end)
+	myppb.rune2.deactivate = myppb.rune2:CreateAnimationGroup()
+	a =	myppb.rune2.deactivate:CreateAnimation("Alpha")
+	a:SetChange(-1) a:SetDuration(0.3) a:SetOrder(1)
+	myppb.rune2.deactivate:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(0); end)
+	-- rune3
+	myppb.rune3 = CreateFrame("Frame", "clcretPaladinPowerBarRune3", myppb)
+	myppb.rune3:SetPoint("LEFT", "clcretPaladinPowerBarRune2", "RIGHT", 2, -1)
+	myppb.rune3:SetSize(27, 21)
+	t = myppb.rune3:CreateTexture("clcretPaladinPowerBarRune2Texture", "OVERLAY", nil, -1)
+	t:SetAllPoints()
+	t:SetTexture(tfile)
+	t:SetTexCoord(0.15234375, 0.25781250, 0.64843750, 0.81250000)
+	myppb.rune3.activate = myppb.rune3:CreateAnimationGroup()
+	a =	myppb.rune3.activate:CreateAnimation("Alpha")
+	a:SetChange(1) a:SetDuration(0.2) a:SetOrder(1)
+	myppb.rune3.activate:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(1) end)
+	myppb.rune3.deactivate = myppb.rune3:CreateAnimationGroup()
+	a =	myppb.rune3.deactivate:CreateAnimation("Alpha")
+	a:SetChange(-1) a:SetDuration(0.3) a:SetOrder(1)
+	myppb.rune3.deactivate:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(0); end)
+	-- showanim
+	myppb.showAnim = myppb:CreateAnimationGroup()
+	a = myppb.showAnim:CreateAnimation("Alpha")
+	a:SetChange(1) a:SetDuration(0.5) a:SetOrder(1)
+	myppb.showAnim:SetScript("OnFinished", function(self) self:GetParent():SetAlpha(1.0) end)
+	
+	myppb:SetScript("OnEvent", PaladinPowerBar_OnEvent)
+	myppb:Hide()
+	PaladinPowerBar_OnLoad(myppb)
+end
+--------------------------------------------------------------------------------

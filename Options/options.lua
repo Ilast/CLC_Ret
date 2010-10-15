@@ -259,34 +259,6 @@ Commands:
 						clcret:ToggleLock()
 					end,
 				},
-				__adjustHPBar = {
-					order = 2,
-					type = "header",
-					name = "",
-				},
-				____adjustHPBar = {
-					order = 3,
-					type = "description",
-					name = "|cffff0000WARNING|cffffffff Adjusting the HP bar will automatically reload your UI."
-				},
-				adjustHPBar = {
-					order = 4,
-					type = "select",
-					name = "Adjust Holy Power Bar",
-					width = "single",
-					get = function(info) if db.adjustHPBar then return 2 else return 1 end end,
-					set = function(info, val)
-						if val == 1 then db.adjustHPBar = false
-						else db.adjustHPBar = true end
-						ReloadUI()
-					end,
-					values = { "No", "Yes" }
-				},
-				_____adjustHPBar = {
-					order = 5,
-					type = "description",
-					name = ""
-				},
 				
 				show = {
 					order = 10,
@@ -345,13 +317,50 @@ Commands:
 			name = "Appearance",
 			type = "group",
 			args = {
+				myppb = {
+					order = 1, type = "group", inline = true, name = "Adjust Holy Power Bar",
+					args = {
+						adjustHPBar = {
+							order = 1, type = "toggle",
+							name = "Use own bar",
+							get = function(info) return db.adjustHPBar end,
+							set = function(info, val) db.adjustHPBar = val clcret:UpdatePPB() end,
+						},
+						hideBlizPPB = {
+							order = 2, type = "toggle", width="double",
+							name = "Hide Blizzard",
+							get = function(info) return db.hideBlizPPB end,
+							set = function(info, val) db.hideBlizPPB = val clcret:UpdatePPB() end,
+						},
+						ppbX = {
+							order = 12, type = "range", min = -2000, max = 2000, step = 1, name = "X",
+							get = function(info) return db.ppbX end,
+							set = function(info, val) db.ppbX = val clcret:UpdatePPB() end,
+						},
+						ppbY = {
+							order = 13, type = "range", min = -2000, max = 2000, step = 1, name = "Y",
+							get = function(info) return db.ppbY end,
+							set = function(info, val) db.ppbY = val clcret:UpdatePPB() end,
+						},
+						ppbScale = {
+							order = 14, type = "range", min = 0.1, max = 10, step = 0.1, name = "Scale",
+							get = function(info) return db.ppbScale end,
+							set = function(info, val) db.ppbScale = val clcret:UpdatePPB() end,
+						},
+						ppbAlpha = {
+							order = 15, type = "range", min = 0, max = 1, step = 0.01, name = "Alpha",
+							get = function(info) return db.ppbAlpha end,
+							set = function(info, val) db.ppbAlpha = val clcret:UpdatePPB() end,
+						},
+					},
+				},
 				__buttonAspect = {
 					type = "header",
 					name = "Button Aspect",
-					order = 1,
+					order = 2,
 				},
 				zoomIcons = {
-					order = 2,
+					order = 3,
 					type = "toggle",
 					name = "Zoomed icons",
 					get = function(info) return db.zoomIcons end,
@@ -363,7 +372,7 @@ Commands:
 					end,
 				},
 				noBorder = {
-					order = 3,
+					order = 4,
 					type = "toggle",
 					name = "Hide border",
 					get = function(info) return db.noBorder end,
@@ -375,7 +384,7 @@ Commands:
 					end,
 				},
 				borderColor = {
-					order = 4,
+					order = 5,
 					type = "color",
 					name = "Border color",
 					hasAlpha = true,
@@ -388,7 +397,7 @@ Commands:
 					end,
 				},
 				borderType = {
-					order = 5,
+					order = 6,
 					type = "select",
 					name = "Border type",
 					get = function(info) return db.borderType end,
@@ -401,7 +410,7 @@ Commands:
 					values = { "Light", "Medium", "Heavy" }
 				},
 				grayOOM = {
-					order = 6,
+					order = 7,
 					type = "toggle",
 					name = "Gray when OOM",
 					get = function(info) return db.grayOOM end,
