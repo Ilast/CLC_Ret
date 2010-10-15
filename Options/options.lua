@@ -103,7 +103,7 @@ function abgs:SpellGet()
 	
 	-- special case for items since link is used instead of name
 	if (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
-		return GetItemInfo(db.auras[i].data.spell)
+		return db.auras[i].data.spell
 	elseif db.auras[i].data.exec == "AuraButtonExecICDItem" then
 		return GetSpellInfo(db.auras[i].data.spell)
 	end
@@ -128,7 +128,7 @@ function abgs:SpellSet(val)
 	elseif (db.auras[i].data.exec == "AuraButtonExecItemVisibleAlways") or (db.auras[i].data.exec == "AuraButtonExecItemVisibleNoCooldown") then
 		local name, link = GetItemInfo(val)
 		if name then
-			db.auras[i].data.spell = link
+			db.auras[i].data.spell = val
 		else
 			db.auras[i].data.spell = ""
 			db.auras[i].enabled = false
